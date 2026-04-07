@@ -6,244 +6,62 @@
   <title>Liên Quân Account Share</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f1f5f9; }
-    .font-mono { font-family: 'JetBrains Mono', monospace; }
-    .neon-cyan { color: #06b6d4; text-shadow: 0 0 10px #06b6d4; }
-    .neon-purple { color: #a855f7; text-shadow: 0 0 10px #a855f7; }
-    .btn-roll {
-      background: linear-gradient(90deg, #06b6d4, #a855f7);
-      transition: all .2s;
-    }
-    .btn-roll:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(6,182,212,0.5); }
-    .account-card { background: #1e293b; border: 1px solid #06b6d4; border-radius: 12px; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .fade-in { animation: fadeIn .3s ease-out; }
-  </style>
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="min-h-screen p-4 flex flex-col items-center">
-  <header class="text-center mb-6">
-    <h1 class="text-3xl font-extrabold neon-cyan mb-2">LIÊN QUÂN ACCOUNT SHARE</h1>
-    <p class="text-slate-400">Random tài khoản từ file acclq*.txt</p>
+  <header class="text-center mb-8 fade-in">
+    <h1 class="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 mb-2">
+      LIÊN QUÂN ACCOUNT SHARE
+    </h1>
+    <p class="text-slate-400">Random tài khoản từ file dữ liệu</p>
   </header>
 
-  <div class="w-full max-w-md">
+  <main class="w-full max-w-lg">
     <!-- Controls -->
-    <div class="flex flex-col gap-4 mb-6">
-      <div class="flex gap-2 justify-center">
-        <button id="rollBtn" class="btn-roll px-8 py-4 rounded-xl font-bold text-white text-lg shadow-lg">🎲 ROLL</button>
-        <button id="copyBtn" class="px-4 py-4 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 text-white">📋 Copy</button>
+    <div class="flex flex-col gap-4 mb-8">
+      <div class="flex gap-3 justify-center">
+        <button id="rollBtn" class="btn-roll px-10 py-5 rounded-2xl font-bold text-white text-xl shadow-lg hover:shadow-cyan-500/50 transition-all">
+          ROLL
+        </button>
+        <button id="copyBtn" class="px-6 py-5 rounded-2xl font-bold bg-slate-800 hover:bg-slate-700 text-white transition">
+          COPY
+        </button>
       </div>
-      <div class="flex gap-2 justify-center text-sm">
-        <label class="flex items-center gap-2"><input type="radio" name="filter" value="all" checked> Tất cả</label>
-        <label class="flex items-center gap-2"><input type="radio" name="filter" value="full"> Chỉ FULL</label>
-        <label class="flex items-center gap-2"><input type="radio" name="filter" value="partial"> Chỉ MỖI SỐ</label>
+      <div class="flex flex-wrap gap-3 justify-center text-sm text-slate-400">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="filter" value="all" checked class="accent-cyan-500">
+          Tất cả
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="filter" value="full" class="accent-cyan-500">
+          Chỉ FULL
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="filter" value="partial" class="accent-cyan-500">
+          Chỉ MỖI SỐ
+        </label>
       </div>
-      <p class="text-center text-xs text-slate-500">Nhấn Space để Roll</p>
+      <p class="text-center text-xs text-slate-500">Nhấn Space để Roll • Nhấn Ctrl+C để copy</p>
     </div>
 
-    <!-- Account Display -->
-    <div id="accountCard" class="account-card p-5 min-h-[200px] flex flex-col items-center justify-center text-center hidden">
-      <div class="font-mono text-lg mb-2" id="credential"></div>
-      <div class="text-sm text-slate-400 mb-4" id="info"></div>
+    <!-- Account Card -->
+    <div id="accountCard" class="account-card p-6 min-h-[240px] flex flex-col items-center justify-center text-center hidden">
+      <div class="font-mono text-2xl mb-4 break-all" id="credential"></div>
+      <div class="text-sm text-slate-300 mb-4" id="info"></div>
       <div class="text-xs text-slate-500" id="source"></div>
     </div>
 
-    <!-- Empty State -->
-    <div id="emptyState" class="text-center py-10 text-slate-500">
-      <p>Đang tải dữ liệu từ file...</p>
-      <p class="text-xs mt-2">Nếu không thấy, hãy upload acclq*.txt lên repo</p>
+    <!-- Empty / Loading -->
+    <div id="emptyState" class="text-center py-12 text-slate-500">
+      <p>Đang tải dữ liệu...</p>
+      <p class="text-xs mt-2">Nếu không thấy, hãy upload acclq*..txt vào thư mục data/</p>
     </div>
-  </div>
+  </main>
 
-  <footer class="mt-8 text-slate-500 text-xs text-center">
-    Data fetched from raw files • <span id="countDisplay"></span>
+  <footer class="mt-10 text-slate-500 text-xs text-center">
+    Liên Quân Account Share • <span id="countDisplay"></span>
   </footer>
 
-  <script>
-    // Multi-format parser
-    function parseAccount(line) {
-      line = line.trim();
-      if (!line) return null;
-
-      // Format 1: simple "user|pass"
-      if (line.includes('|') && !line.includes(':')) {
-        const parts = line.split('|');
-        return { username: parts[0], password: parts[1] || '', type: 'simple' };
-      }
-
-      // Format 2: "user:pass Info = ..." (has colon and Info)
-      if (line.includes(':') && (line.includes('Info =') || line.includes('result ='))) {
-        // Extract credentials before "Info" or "result"
-        let before = line;
-        const infoIdx = line.indexOf('Info');
-        const resultIdx = line.indexOf('result =');
-        if (infoIdx > 0) before = line.slice(0, infoIdx).trim();
-        else if (resultIdx === 0) before = line.slice(resultIdx + 'result ='.length).trim();
-        // Get first two : separated fields as user:pass
-        const colonParts = before.split(':');
-        if (colonParts.length >= 2) {
-          const user = colonParts[0].trim();
-          const pass = colonParts[1].split(' ')[0].trim();
-          const rest = line;
-          return { username: user, password: pass, raw: line, type: 'full' };
-        }
-      }
-
-      // Fallback: treat whole line as single string; maybe user:pass at front
-      const colonParts = line.split(':');
-      if (colonParts.length >= 2) {
-        return { username: colonParts[0].trim(), password: colonParts[1].trim(), raw: line, type: 'fallback' };
-      }
-
-      return null;
-    }
-
-    function extractInfo(acc) {
-      if (acc.type === 'simple') return '';
-      const raw = acc.raw || '';
-      // Pull key-value pairs: RANK, LEVEL, HERO, SKIN, BAND, EMAIL, SDT, FB, SS, TRẠNG THÁI
-      const fields = {};
-      const patterns = [
-        /RANK\s*:\s*([^\n|]+)/i,
-        /LEVEL\s*:\s*(\d+)/i,
-        /TƯỚNG\s*:\s*(\d+)/i,
-        /HERO\s*:\s*(\d+)/i,
-        /SKIN\s*:\s*(\d+)/i,
-        /BAND\s*:\s*(YES|NO)/i,
-        /BAN\s*:\s*(YES|NO)/i,
-        /EMAIL\s*:\s*(YES|NO|ĐÃ XÁC THỰC|CHƯA XÁC THỰC)/i,
-        /TÌNH TRẠNG EMAIL\s*:\s*([^\n|]+)/i,
-        /SDT\s*:\s*(YES|NO)/i,
-        /CMND\s*:\s*(YES|NO)/i,
-        /FB\s*:\s*(LIVE|NO|DIE)/i,
-        /SS\s*:\s*(\d+)/i,
-        /TRẠNG THÁI\s*:\s*([^\n|]+)/i
-      ];
-      for (const re of patterns) {
-        const m = raw.match(re);
-        if (m) {
-          const key = re.source.split(':')[0].replace(/\\s*:\\s*/,'').toUpperCase();
-          fields[key] = m[1].trim();
-        }
-      }
-      return fields;
-    }
-
-    // State
-    let allAccounts = [];
-    let filteredAccounts = [];
-    let current = null;
-
-    async function loadData() {
-      const fileNames = ['acclq1.txt', 'acclq2.txt', 'acclq3.txt'];
-      const results = [];
-      for (const fname of fileNames) {
-        try {
-          const resp = await fetch(fname);
-          if (!resp.ok) continue;
-          const text = await resp.text();
-          results.push(text);
-        } catch (e) {
-          console.log(`Missing ${fname}`);
-        }
-      }
-      if (results.length === 0) {
-        document.getElementById('emptyState').innerText = 'Không tìm thấy file acclq*.txt. Hãy upload chúng lên repo.';
-        return;
-      }
-      const allText = results.join('\n');
-      allAccounts = [];
-      for (const line of allText.split(/\r?\n/)) {
-        const acc = parseAccount(line);
-        if (acc) allAccounts.push(acc);
-      }
-      filteredAccounts = allAccounts;
-      document.getElementById('emptyState').classList.add('hidden');
-      document.getElementById('accountCard').classList.remove('hidden');
-      document.getElementById('countDisplay').textContent = `${allAccounts.length} accounts loaded`;
-      applyFilter();
-    }
-
-    function applyFilter() {
-      const filter = document.querySelector('input[name="filter"]:checked').value;
-      if (filter === 'all') filteredAccounts = allAccounts;
-      else if (filter === 'full') {
-        filteredAccounts = allAccounts.filter(acc => acc.type !== 'simple');
-      } else if (filter === 'partial') {
-        filteredAccounts = allAccounts.filter(acc => acc.type === 'simple');
-      }
-    }
-
-    function getRandom() {
-      if (filteredAccounts.length === 0) return null;
-      const idx = Math.floor(Math.random() * filteredAccounts.length);
-      return filteredAccounts[idx];
-    }
-
-    function renderAccount(acc) {
-      if (!acc) {
-        document.getElementById('accountCard').classList.add('hidden');
-        document.getElementById('emptyState').classList.remove('hidden');
-        document.getElementById('emptyState').innerText = 'Không có account phù hợp';
-        return;
-      }
-      const credEl = document.getElementById('credential');
-      credEl.innerHTML = `<span class="neon-cyan">${acc.username}</span><span class="text-slate-500 mx-2">|</span><span class="neon-purple">${acc.password}</span>`;
-      credEl.classList.remove('fade-in');
-      void credEl.offsetWidth; // trigger reflow
-      credEl.classList.add('fade-in');
-
-      // Info block
-      const infoEl = document.getElementById('info');
-      let infoHtml = '';
-      if (acc.type !== 'simple') {
-        const info = extractInfo(acc);
-        const items = [];
-        if (info['RANK']) items.push(`Rank: ${info['RANK']}`);
-        if (info['LEVEL']) items.push(`Lv ${info['LEVEL']}`);
-        if (info['HERO']) items.push(`Hero: ${info['HERO']}`);
-        if (info['SKIN']) items.push(`Skin: ${info['SKIN']}`);
-        if (info['TRẠNG THÁI']) items.push(`Trạng thái: ${info['TRẠNG THÁI']}`);
-        if (info['BAND'] || info['BAN']) items.push(`Ban: ${info['BAND']||info['BAN']}`);
-        if (info['EMAIL']) items.push(`Email: ${info['EMAIL']}`);
-        if (items.length) infoHtml = items.join(' • ');
-      }
-      infoEl.innerHTML = infoHtml || '<span class="text-slate-500">Chỉ có username/password</span>';
-
-      // Source file hint
-      document.getElementById('source').textContent = `Source: ${acc.type}`;
-    }
-
-    function roll() {
-      applyFilter();
-      current = getRandom();
-      renderAccount(current);
-    }
-
-    function copy() {
-      if (!current) return;
-      const text = `${current.username}|${current.password}`;
-      navigator.clipboard.writeText(text).then(() => {
-        const btn = document.getElementById('copyBtn');
-        btn.textContent = '✓ Copied!';
-        setTimeout(() => btn.textContent = '📋 Copy', 1500);
-      });
-    }
-
-    // Event listeners
-    document.getElementById('rollBtn').addEventListener('click', roll);
-    document.getElementById('copyBtn').addEventListener('click', copy);
-    document.querySelectorAll('input[name="filter"]').forEach(r => r.addEventListener('change', roll));
-    document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && document.activeElement === document.body) {
-        e.preventDefault();
-        roll();
-      }
-    });
-
-    // Load on start
-    loadData();
-  </script>
+  <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,7 @@
+# Data files (chứa tài khoản)
+data/*.txt
+# Local logs
+logs/
+# OS
+.DS_Store
+Thumbs.db
