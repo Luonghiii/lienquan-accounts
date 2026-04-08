@@ -368,3 +368,72 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ─── Update filter chip counts ───────────────────────────────────────────────
+function updateFilterCounts() {
+  const set = (id, count) => { const el = $(id); if (el) el.textContent = count; };
+  set('countAll',     allAccounts.length);
+  set('countFull',    allAccounts.filter(a => a.type === 'FULL INFO').length);
+  set('countPartial', allAccounts.filter(a => a.type === 'NICK | PASS').length);
+  set('countSkin',    allAccounts.filter(a => a.hasSkin).length);
+  set('countWhite',   allAccounts.filter(a => a.isWhite).length);
+}
+
+// ─── Clear search button ─────────────────────────────────────────────────────
+function setupClearBtn() {
+  const clearBtn = $('clearSearch');
+  const input    = $('searchInput');
+  if (!clearBtn || !input) return;
+
+  input.addEventListener('input', () => {
+    clearBtn.classList.toggle('visible', input.value.length > 0);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.classList.remove('visible');
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  });
+}
+
+// ─── Patch: fix accStatus class + call new helpers in init ───────────────────
+// Override renderAccount to use correct badge class
+const _origRenderAccount = renderAccount;
+function renderAccountPatched(account) {
+  _origRenderAccount(account);
+  // Switch acc-status-tag -> acc-status-badge
+  const statusEl = $('accStatus');
+  if (statusEl) {
+    statusEl.className = account && account.isWhite ? 'acc-status-badge warning' : 'acc-status-badge';
+    if (statusEl.className.includes('warning')) {
+      statusEl.style.cssText = 'color:var(--warning);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.08)';
+    } else {
+      statusEl.style.cssText = '';
+    }
+  }
+}
+
+// Patch loadAccounts to also update counts
+const _origLoadAccounts = loadAccounts;
+async function loadAccountsPatched() {
+  const result = await _origLoadAccounts();
+  updateFilterCounts();
+  return result;
+}
+
+// Re-wire DOMContentLoaded to call patched version
+document.removeEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', async function initPatched() {
+  createParticles();
+  setupRevealOnScroll();
+  setupEvents();
+  setupClearBtn();
+
+  $('loadingState')?.classList.remove('hidden');
+  $('accountCard')?.classList.add('hidden');
+  $('emptyState')?.classList.add('hidden');
+
+  await loadAccountsPatched();
+  setTimeout(rollRandomAccount, 650);
+});
