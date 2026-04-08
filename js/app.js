@@ -25,7 +25,13 @@ const dom = {
 let allAccounts = [];
 let currentAccount = null;
 
-// ─── Parse CSV ────────────────────────────────────────────────────────────────
+// ─── Infinite Scroll state ────────────────────────────────────────────────
+const PAGE_SIZE = 50;
+let currentPool = [];
+let renderedCount = 0;
+let infiniteScrollObserver = null;
+
+// ─── Parse CSV ─────────────────────────────────────────────────────────────────
 function parseCSV(text) {
   const lines = text.trim().split('\n');
   const headers = lines[0].split(',').map(h => h.trim().replace(/^\uFEFF/, ''));
@@ -72,7 +78,6 @@ function parseCSV(text) {
 }
 
 function parseLoginDate(str) {
-  // format: "HH:mm:ss DD-MM-YYYY"
   if (!str) return 0;
   const parts = str.split(' ');
   if (parts.length < 2) return 0;
@@ -82,7 +87,7 @@ function parseLoginDate(str) {
   return isNaN(dt) ? 0 : dt.getTime();
 }
 
-// ─── Parse TXT ────────────────────────────────────────────────────────────────
+// ─── Parse TXT ─────────────────────────────────────────────────────────────────
 function parseTXT(text) {
   const lines = text.trim().split('\n');
   const accounts = [];
@@ -112,7 +117,7 @@ function parseTXT(text) {
   return accounts;
 }
 
-// ─── Load data ────────────────────────────────────────────────────────────────
+// ─── Load data ─────────────────────────────────────────────────────────────────
 async function loadAccounts() {
   const results = await Promise.allSettled([
     fetch('data/acc.csv').then(r => r.ok ? r.text() : Promise.reject()),
@@ -130,14 +135,24 @@ async function loadAccounts() {
   allAccounts = [...csvAccounts, ...uniqueTxt];
 
   updateStats(allAccounts, allAccounts);
+  updateFilterCounts();
   return allAccounts;
 }
 
-// ─── Stats ────────────────────────────────────────────────────────────────────
+// ─── Stats ──────────────────────────────────────────────────────────────────
 function updateStats(all, visible) {
   if (dom.countDisplay) dom.countDisplay.textContent = all.length;
   if (dom.visibleCount) dom.visibleCount.textContent = visible.length;
   if (dom.skinCount) dom.skinCount.textContent = all.filter(a => a.hasSkin).length;
+}
+
+function updateFilterCounts() {
+  const set = (id, count) => { const el = $(id); if (el) el.textContent = count; };
+  set('countAll',     allAccounts.length);
+  set('countFull',    allAccounts.filter(a => a.type === 'FULL INFO').length);
+  set('countPartial', allAccounts.filter(a => a.type === 'NICK | PASS').length);
+  set('countSkin',    allAccounts.filter(a => a.hasSkin).length);
+  set('countWhite',   allAccounts.filter(a => a.isWhite).length);
 }
 
 // ─── Filter + Sort ────────────────────────────────────────────────────────────
@@ -170,7 +185,7 @@ function getFilteredAccounts() {
   return pool;
 }
 
-// ─── Render account card ──────────────────────────────────────────────────────
+// ─── Render account card ────────────────────────────────────────────────────
 function renderAccount(account) {
   dom.loadingState?.classList.add('hidden');
 
@@ -187,15 +202,11 @@ function renderAccount(account) {
 
   if (dom.accStatus) {
     dom.accStatus.textContent = account.status;
-    dom.accStatus.className = 'acc-status-tag';
+    dom.accStatus.className = 'acc-status-badge';
     if (account.isWhite) {
-      dom.accStatus.style.color = 'var(--warning)';
-      dom.accStatus.style.borderColor = 'rgba(255,209,102,0.28)';
-      dom.accStatus.style.background = 'rgba(255,209,102,0.1)';
+      dom.accStatus.style.cssText = 'color:var(--warning);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.08)';
     } else {
-      dom.accStatus.style.color = 'var(--success)';
-      dom.accStatus.style.borderColor = 'rgba(90,247,142,0.26)';
-      dom.accStatus.style.background = 'rgba(90,247,142,0.08)';
+      dom.accStatus.style.cssText = '';
     }
   }
 
@@ -222,218 +233,122 @@ function renderAccount(account) {
   });
 }
 
-// ─── Render list ──────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+}
+
+// ─── INFINITE SCROLL: Render list (chỉ render 50 items đầu tiên) ───────────────
 function renderList(pool) {
   if (!dom.accountList) return;
+
+  currentPool = pool;
+  renderedCount = 0;
+
+  // Clean up old observer if exists
+  if (infiniteScrollObserver) {
+    infiniteScrollObserver.disconnect();
+    infiniteScrollObserver = null;
+  }
+
+  dom.accountList.innerHTML = '';
 
   if (!pool.length) {
     dom.accountList.innerHTML = `<div class="empty-list">Không có tài khoản phù hợp với bộ lọc hiện tại.</div>`;
     return;
   }
 
-  dom.accountList.innerHTML = pool.map((acc, idx) => {
-    const pillClass = acc.hasSkin ? 'skin' : acc.isWhite ? 'white' : '';
-    const pillText = acc.hasSkin
-      ? `🎨 ${acc.skinCount} skin`
-      : acc.isWhite ? '⚠ Trắng' : 'Cơ bản';
-    return `
-      <div class="account-row" data-index="${idx}" data-credential="${escHtml(acc.credential)}" role="button" tabindex="0" aria-label="Chọn tài khoản ${escHtml(acc.username)}">
-        <div class="row-main">
-          <div class="row-user">${escHtml(acc.username)}</div>
-          <div class="row-sub">${acc.type} · ${acc.info['Quốc Gia'] || 'N/A'}</div>
-        </div>
-        <div class="row-type">${acc.info['Rank'] || 'N/A'}</div>
-        <div class="row-meta">${acc.loginDate ? acc.loginDate.split(' ').pop() : '—'}</div>
-        <div class="row-action"><span class="row-pill ${pillClass}">${pillText}</span></div>
-      </div>`;
-  }).join('');
+  // Render first batch
+  appendRows();
 
-  // click / keyboard on rows
-  dom.accountList.querySelectorAll('.account-row').forEach(row => {
+  // Setup infinite scroll observer on sentinel element
+  setupInfiniteScroll();
+}
+
+// Append next PAGE_SIZE rows to DOM
+function appendRows() {
+  if (!dom.accountList || renderedCount >= currentPool.length) return;
+
+  const start = renderedCount;
+  const end = Math.min(start + PAGE_SIZE, currentPool.length);
+  const frag = document.createDocumentFragment();
+
+  for (let i = start; i < end; i++) {
+    const acc = currentPool[i];
+    const row = document.createElement('div');
+    row.className = 'account-row';
+    row.dataset.index = i;
+    row.dataset.credential = escHtml(acc.credential);
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('aria-label', `Chọn tài khoản ${escHtml(acc.username)}`);
+
+    const pillClass = acc.hasSkin ? 'skin' : acc.isWhite ? 'white' : '';
+    const pillText = acc.hasSkin ? `🎨 ${acc.skinCount} skin` : acc.isWhite ? '⚠ Trắng' : 'Cơ bản';
+
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="row-user">${escHtml(acc.username)}</div>
+        <div class="row-sub">${acc.type} · ${acc.info['Quốc Gia'] || 'N/A'}</div>
+      </div>
+      <div class="row-type">${acc.info['Rank'] || 'N/A'}</div>
+      <div class="row-meta">${acc.loginDate ? acc.loginDate.split(' ').pop() : '—'}</div>
+      <div class="row-action"><span class="row-pill ${pillClass}">${pillText}</span></div>
+    `;
+
     const selectRow = () => {
-      const idx = parseInt(row.dataset.index, 10);
-      if (!isNaN(idx) && pool[idx]) renderAccount(pool[idx]);
+      renderAccount(acc);
       row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     };
+
     row.addEventListener('click', selectRow);
-    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(); } });
-  });
-}
-
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ─── Roll random ──────────────────────────────────────────────────────────────
-function rollRandomAccount() {
-  const pool = getFilteredAccounts();
-  renderList(pool);
-  updateStats(allAccounts, pool);
-  if (!pool.length) { renderAccount(null); return; }
-  const random = pool[Math.floor(Math.random() * pool.length)];
-  renderAccount(random);
-}
-
-// ─── Refresh list (no random roll) ───────────────────────────────────────────
-function refreshList() {
-  const pool = getFilteredAccounts();
-  renderList(pool);
-  updateStats(allAccounts, pool);
-  // keep current card if still in pool, else pick first
-  if (currentAccount && pool.some(a => a.credential === currentAccount.credential)) {
-    document.querySelectorAll('.account-row').forEach(row => {
-      row.classList.toggle('active', row.dataset.credential === currentAccount.credential);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(); }
     });
-  } else if (pool.length) {
-    renderAccount(pool[0]);
-  } else {
-    renderAccount(null);
+
+    frag.appendChild(row);
+  }
+
+  dom.accountList.appendChild(frag);
+  renderedCount = end;
+
+  // Update sentinel
+  updateSentinel();
+}
+
+// Create or update sentinel element at end of list for IntersectionObserver
+function updateSentinel() {
+  if (!dom.accountList) return;
+
+  let sentinel = dom.accountList.querySelector('.infinite-scroll-sentinel');
+
+  if (renderedCount >= currentPool.length) {
+    // All items rendered -> remove sentinel
+    sentinel?.remove();
+    return;
+  }
+
+  if (!sentinel) {
+    sentinel = document.createElement('div');
+    sentinel.className = 'infinite-scroll-sentinel';
+    sentinel.style.cssText = 'height:1px;';
+    dom.accountList.appendChild(sentinel);
   }
 }
 
-// ─── Particles ────────────────────────────────────────────────────────────────
-function createParticles(total = 28) {
-  if (!dom.particles) return;
-  const frag = document.createDocumentFragment();
-  for (let i = 0; i < total; i++) {
-    const p = document.createElement('span');
-    p.className = 'particle';
-    const size = (Math.random() * 6 + 2).toFixed(1);
-    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;bottom:${Math.random()*-120}px;animation-duration:${Math.random()*9+8}s;animation-delay:${Math.random()*-9}s`;
-    frag.appendChild(p);
-  }
-  dom.particles.appendChild(frag);
+function setupInfiniteScroll() {
+  const sentinel = dom.accountList?.querySelector('.infinite-scroll-sentinel');
+  if (!sentinel) return;
+
+  infiniteScrollObserver = new IntersectionObserver(
+    entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && renderedCount < currentPool.length) {
+          appendRows();
+        }
+      });
+    },
+    { root: null, rootMargin: '100px', threshold: 0 }
+  );
+
+  infiniteScrollObserver.observe(sentinel);
 }
-
-// ─── Scroll reveal ────────────────────────────────────────────────────────────
-function setupRevealOnScroll() {
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in-view'); });
-  }, { threshold: 0.16 });
-  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-}
-
-// ─── Events ───────────────────────────────────────────────────────────────────
-function setupEvents() {
-  dom.scrollToPanel?.addEventListener('click', () => {
-    dom.panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-
-  dom.rollBtns.forEach(btn => btn.addEventListener('click', rollRandomAccount));
-
-  dom.copyBtn?.addEventListener('click', async () => {
-    const text = dom.credential?.textContent?.trim();
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      dom.copyBtn.textContent = '✓ ĐÃ SAO CHÉP';
-      setTimeout(() => { dom.copyBtn.textContent = 'SAO CHÉP'; }, 1500);
-    } catch {
-      dom.copyBtn.textContent = 'LỖI COPY';
-      setTimeout(() => { dom.copyBtn.textContent = 'SAO CHÉP'; }, 1500);
-    }
-  });
-
-  // filter chips → refresh list (don't random roll, keep context)
-  document.querySelectorAll('input[name="filter"]').forEach(input => {
-    input.addEventListener('change', refreshList);
-  });
-
-  // search & sort → refresh list
-  let searchTimer;
-  dom.searchInput?.addEventListener('input', () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(refreshList, 220);
-  });
-
-  dom.sortSelect?.addEventListener('change', () => {
-    const pool = getFilteredAccounts();
-    renderList(pool);
-    updateStats(allAccounts, pool);
-  });
-}
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-async function init() {
-  createParticles();
-  setupRevealOnScroll();
-  setupEvents();
-
-  dom.loadingState?.classList.remove('hidden');
-  dom.accountCard?.classList.add('hidden');
-  dom.emptyState?.classList.add('hidden');
-
-  await loadAccounts();
-  setTimeout(rollRandomAccount, 650);
-}
-
-document.addEventListener('DOMContentLoaded', init);
-
-// ─── Update filter chip counts ───────────────────────────────────────────────
-function updateFilterCounts() {
-  const set = (id, count) => { const el = $(id); if (el) el.textContent = count; };
-  set('countAll',     allAccounts.length);
-  set('countFull',    allAccounts.filter(a => a.type === 'FULL INFO').length);
-  set('countPartial', allAccounts.filter(a => a.type === 'NICK | PASS').length);
-  set('countSkin',    allAccounts.filter(a => a.hasSkin).length);
-  set('countWhite',   allAccounts.filter(a => a.isWhite).length);
-}
-
-// ─── Clear search button ─────────────────────────────────────────────────────
-function setupClearBtn() {
-  const clearBtn = $('clearSearch');
-  const input    = $('searchInput');
-  if (!clearBtn || !input) return;
-
-  input.addEventListener('input', () => {
-    clearBtn.classList.toggle('visible', input.value.length > 0);
-  });
-
-  clearBtn.addEventListener('click', () => {
-    input.value = '';
-    clearBtn.classList.remove('visible');
-    input.dispatchEvent(new Event('input'));
-    input.focus();
-  });
-}
-
-// ─── Patch: fix accStatus class + call new helpers in init ───────────────────
-// Override renderAccount to use correct badge class
-const _origRenderAccount = renderAccount;
-function renderAccountPatched(account) {
-  _origRenderAccount(account);
-  // Switch acc-status-tag -> acc-status-badge
-  const statusEl = $('accStatus');
-  if (statusEl) {
-    statusEl.className = account && account.isWhite ? 'acc-status-badge warning' : 'acc-status-badge';
-    if (statusEl.className.includes('warning')) {
-      statusEl.style.cssText = 'color:var(--warning);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.08)';
-    } else {
-      statusEl.style.cssText = '';
-    }
-  }
-}
-
-// Patch loadAccounts to also update counts
-const _origLoadAccounts = loadAccounts;
-async function loadAccountsPatched() {
-  const result = await _origLoadAccounts();
-  updateFilterCounts();
-  return result;
-}
-
-// Re-wire DOMContentLoaded to call patched version
-document.removeEventListener('DOMContentLoaded', init);
-document.addEventListener('DOMContentLoaded', async function initPatched() {
-  createParticles();
-  setupRevealOnScroll();
-  setupEvents();
-  setupClearBtn();
-
-  $('loadingState')?.classList.remove('hidden');
-  $('accountCard')?.classList.add('hidden');
-  $('emptyState')?.classList.add('hidden');
-
-  await loadAccountsPatched();
-  setTimeout(rollRandomAccount, 650);
-});
