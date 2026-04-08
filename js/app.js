@@ -136,6 +136,9 @@ async function loadAccounts() {
 
   updateStats(allAccounts, allAccounts);
   updateFilterCounts();
+  currentPool = allAccounts;
+  renderList(getFilteredAccounts());
+
   return allAccounts;
 }
 
