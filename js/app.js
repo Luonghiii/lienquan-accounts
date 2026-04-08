@@ -11,50 +11,83 @@ const dom = {
   infoGrid: $('infoGrid'),
   skinSection: $('skinSection'),
   accType: $('accType'),
+  accStatus: $('accStatus'),
   countDisplay: $('countDisplay'),
+  visibleCount: $('visibleCount'),
+  skinCount: $('skinCount'),
   rollBtns: [$('rollBtnMain'), $('rollBtn')].filter(Boolean),
   copyBtn: $('copyBtn'),
-  filterChips: null
+  searchInput: $('searchInput'),
+  sortSelect: $('sortSelect'),
+  accountList: $('accountList'),
 };
 
 let allAccounts = [];
+let currentAccount = null;
 
-// Parse acc.csv: User,Pass,Rank,Level,Tuong,Skin_Count,Skin_List,Email,SDT,QuocGia,Login_Cuoi,TrangThai
+// ─── Parse CSV ────────────────────────────────────────────────────────────────
 function parseCSV(text) {
   const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim());
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^\uFEFF/, ''));
   const accounts = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',').map(c => c.trim());
     if (cols.length < 2 || !cols[0]) continue;
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
-    const skinList = obj['Skin_List'] ? obj['Skin_List'].split('|').map(s => s.trim()).filter(Boolean) : [];
+
+    const skinList = obj['Skin_List']
+      ? obj['Skin_List'].split('|').map(s => s.trim()).filter(Boolean)
+      : [];
+
     const hasFull = obj['Rank'] || obj['Level'] || obj['Tuong'];
+    const isWhite = (obj['TrangThai'] || '').toLowerCase().includes('trắng')
+      || (obj['TrangThai'] || '').toLowerCase().includes('loi pass');
+    const skinCount = parseInt(obj['Skin_Count'] || '0', 10) || 0;
+    const loginDate = obj['Login_Cuoi'] || '';
+
     accounts.push({
       type: hasFull ? 'FULL INFO' : 'NICK | PASS',
       credential: `${obj['User']}|${obj['Pass']}`,
+      username: obj['User'] || '',
       info: {
         Rank: obj['Rank'] || 'N/A',
         Level: obj['Level'] || 'N/A',
         'Tướng': obj['Tuong'] || 'N/A',
         Skin: obj['Skin_Count'] || '0',
         'Quốc Gia': obj['QuocGia'] || 'N/A',
-        'Trạng Thái': obj['TrangThai'] || 'N/A'
+        'Trạng Thái': obj['TrangThai'] || 'N/A',
       },
       skins: skinList,
-      source: 'csv'
+      skinCount,
+      isWhite,
+      hasSkin: skinCount > 0,
+      loginDate,
+      loginTimestamp: parseLoginDate(loginDate),
+      status: isWhite ? 'Lỗi pass' : 'Sẵn sàng',
+      source: 'csv',
     });
   }
   return accounts;
 }
 
-// Parse acc.txt: username|password per line
+function parseLoginDate(str) {
+  // format: "HH:mm:ss DD-MM-YYYY"
+  if (!str) return 0;
+  const parts = str.split(' ');
+  if (parts.length < 2) return 0;
+  const [d, m, y] = parts[1].split('-');
+  const [hh, mm, ss] = parts[0].split(':');
+  const dt = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}`);
+  return isNaN(dt) ? 0 : dt.getTime();
+}
+
+// ─── Parse TXT ────────────────────────────────────────────────────────────────
 function parseTXT(text) {
   const lines = text.trim().split('\n');
   const accounts = [];
   for (const line of lines) {
-    const trimmed = line.trim();
+    const trimmed = line.trim().replace(/\s+/g, '');
     if (!trimmed) continue;
     const parts = trimmed.split('|');
     if (parts.length < 2) continue;
@@ -64,61 +97,82 @@ function parseTXT(text) {
     accounts.push({
       type: 'NICK | PASS',
       credential: `${user}|${pass}`,
+      username: user,
       info: { 'Ghi Chú': 'Tài khoản cơ bản', Server: 'Mặt Trời' },
       skins: [],
-      source: 'txt'
+      skinCount: 0,
+      isWhite: false,
+      hasSkin: false,
+      loginDate: '',
+      loginTimestamp: 0,
+      status: 'Sẵn sàng',
+      source: 'txt',
     });
   }
   return accounts;
 }
 
+// ─── Load data ────────────────────────────────────────────────────────────────
 async function loadAccounts() {
   const results = await Promise.allSettled([
     fetch('data/acc.csv').then(r => r.ok ? r.text() : Promise.reject()),
-    fetch('data/acc.txt').then(r => r.ok ? r.text() : Promise.reject())
+    fetch('data/acc.txt').then(r => r.ok ? r.text() : Promise.reject()),
   ]);
 
   let csvAccounts = [];
   let txtAccounts = [];
 
-  if (results[0].status === 'fulfilled') {
-    csvAccounts = parseCSV(results[0].value);
-  }
-  if (results[1].status === 'fulfilled') {
-    txtAccounts = parseTXT(results[1].value);
-  }
+  if (results[0].status === 'fulfilled') csvAccounts = parseCSV(results[0].value);
+  if (results[1].status === 'fulfilled') txtAccounts = parseTXT(results[1].value);
 
-  // Merge: csv accounts first, then txt accounts not already in csv
-  const csvUsers = new Set(csvAccounts.map(a => a.credential.split('|')[0].toLowerCase()));
-  const uniqueTxt = txtAccounts.filter(a => !csvUsers.has(a.credential.split('|')[0].toLowerCase()));
+  const csvUsers = new Set(csvAccounts.map(a => a.username.toLowerCase()));
+  const uniqueTxt = txtAccounts.filter(a => !csvUsers.has(a.username.toLowerCase()));
   allAccounts = [...csvAccounts, ...uniqueTxt];
 
-  if (dom.countDisplay) dom.countDisplay.textContent = String(allAccounts.length);
+  updateStats(allAccounts, allAccounts);
   return allAccounts;
 }
 
-function createParticles(total = 28) {
-  if (!dom.particles) return;
-  const frag = document.createDocumentFragment();
-  for (let i = 0; i < total; i++) {
-    const p = document.createElement('span');
-    p.className = 'particle';
-    const size = (Math.random() * 6 + 2).toFixed(1);
-    p.style.width = `${size}px`;
-    p.style.height = `${size}px`;
-    p.style.left = `${Math.random() * 100}%`;
-    p.style.bottom = `${Math.random() * -120}px`;
-    p.style.animationDuration = `${Math.random() * 9 + 8}s`;
-    p.style.animationDelay = `${Math.random() * -9}s`;
-    frag.appendChild(p);
-  }
-  dom.particles.appendChild(frag);
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function updateStats(all, visible) {
+  if (dom.countDisplay) dom.countDisplay.textContent = all.length;
+  if (dom.visibleCount) dom.visibleCount.textContent = visible.length;
+  if (dom.skinCount) dom.skinCount.textContent = all.filter(a => a.hasSkin).length;
 }
 
+// ─── Filter + Sort ────────────────────────────────────────────────────────────
+function getFilteredAccounts() {
+  const activeFilter = document.querySelector('input[name="filter"]:checked')?.value || 'all';
+  const keyword = dom.searchInput?.value.trim().toLowerCase() || '';
+  const sortBy = dom.sortSelect?.value || 'random';
+
+  let pool = [...allAccounts];
+
+  // filter
+  if (activeFilter === 'full')    pool = pool.filter(a => a.type === 'FULL INFO');
+  if (activeFilter === 'partial') pool = pool.filter(a => a.type === 'NICK | PASS');
+  if (activeFilter === 'skin')    pool = pool.filter(a => a.hasSkin);
+  if (activeFilter === 'white')   pool = pool.filter(a => a.isWhite);
+
+  // search
+  if (keyword) {
+    pool = pool.filter(a =>
+      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''}`.toLowerCase().includes(keyword)
+    );
+  }
+
+  // sort
+  if (sortBy === 'latest')  pool.sort((a, b) => b.loginTimestamp - a.loginTimestamp);
+  if (sortBy === 'skins')   pool.sort((a, b) => b.skinCount - a.skinCount);
+  if (sortBy === 'user')    pool.sort((a, b) => a.username.localeCompare(b.username));
+  if (sortBy === 'random')  pool.sort(() => Math.random() - 0.5);
+
+  return pool;
+}
+
+// ─── Render account card ──────────────────────────────────────────────────────
 function renderAccount(account) {
   dom.loadingState?.classList.add('hidden');
-  dom.emptyState?.classList.add('hidden');
-  dom.accountCard?.classList.remove('hidden');
 
   if (!account) {
     dom.accountCard?.classList.add('hidden');
@@ -126,55 +180,140 @@ function renderAccount(account) {
     return;
   }
 
+  dom.emptyState?.classList.add('hidden');
+  dom.accountCard?.classList.remove('hidden');
+
   if (dom.accType) dom.accType.textContent = account.type;
+
+  if (dom.accStatus) {
+    dom.accStatus.textContent = account.status;
+    dom.accStatus.className = 'acc-status-tag';
+    if (account.isWhite) {
+      dom.accStatus.style.color = 'var(--warning)';
+      dom.accStatus.style.borderColor = 'rgba(255,209,102,0.28)';
+      dom.accStatus.style.background = 'rgba(255,209,102,0.1)';
+    } else {
+      dom.accStatus.style.color = 'var(--success)';
+      dom.accStatus.style.borderColor = 'rgba(90,247,142,0.26)';
+      dom.accStatus.style.background = 'rgba(90,247,142,0.08)';
+    }
+  }
+
   if (dom.credential) dom.credential.textContent = account.credential;
 
   if (dom.infoGrid) {
     dom.infoGrid.innerHTML = Object.entries(account.info)
-      .map(([label, value]) => `<div class="info-item"><span class="label">${label}</span><span class="value">${value}</span></div>`)
-      .join('');
+      .map(([label, value]) =>
+        `<div class="info-item"><span class="label">${label}</span><span class="value">${value}</span></div>`
+      ).join('');
   }
 
   if (dom.skinSection) {
-    if (account.skins && account.skins.length > 0) {
-      dom.skinSection.innerHTML = account.skins
-        .map(skin => `<span class="skin-tag">${skin}</span>`)
-        .join('');
-      dom.skinSection.style.display = '';
-    } else {
-      dom.skinSection.innerHTML = '<span class="skin-tag" style="opacity:0.5">Không có skin</span>';
-      dom.skinSection.style.display = '';
-    }
+    dom.skinSection.innerHTML = account.skins.length > 0
+      ? account.skins.map(s => `<span class="skin-tag">${s}</span>`).join('')
+      : `<span class="skin-tag" style="opacity:0.5">Không có skin</span>`;
   }
+
+  currentAccount = account;
+
+  // highlight active row in list
+  document.querySelectorAll('.account-row').forEach(row => {
+    row.classList.toggle('active', row.dataset.credential === account.credential);
+  });
 }
 
-function getFilteredAccounts() {
-  const active = document.querySelector('input[name="filter"]:checked')?.value || 'all';
-  if (active === 'full') return allAccounts.filter(a => a.type === 'FULL INFO');
-  if (active === 'partial') return allAccounts.filter(a => a.type === 'NICK | PASS');
-  return allAccounts;
-}
+// ─── Render list ──────────────────────────────────────────────────────────────
+function renderList(pool) {
+  if (!dom.accountList) return;
 
-function rollRandomAccount() {
-  const pool = getFilteredAccounts();
   if (!pool.length) {
-    renderAccount(null);
+    dom.accountList.innerHTML = `<div class="empty-list">Không có tài khoản phù hợp với bộ lọc hiện tại.</div>`;
     return;
   }
+
+  dom.accountList.innerHTML = pool.map((acc, idx) => {
+    const pillClass = acc.hasSkin ? 'skin' : acc.isWhite ? 'white' : '';
+    const pillText = acc.hasSkin
+      ? `🎨 ${acc.skinCount} skin`
+      : acc.isWhite ? '⚠ Trắng' : 'Cơ bản';
+    return `
+      <div class="account-row" data-index="${idx}" data-credential="${escHtml(acc.credential)}" role="button" tabindex="0" aria-label="Chọn tài khoản ${escHtml(acc.username)}">
+        <div class="row-main">
+          <div class="row-user">${escHtml(acc.username)}</div>
+          <div class="row-sub">${acc.type} · ${acc.info['Quốc Gia'] || 'N/A'}</div>
+        </div>
+        <div class="row-type">${acc.info['Rank'] || 'N/A'}</div>
+        <div class="row-meta">${acc.loginDate ? acc.loginDate.split(' ').pop() : '—'}</div>
+        <div class="row-action"><span class="row-pill ${pillClass}">${pillText}</span></div>
+      </div>`;
+  }).join('');
+
+  // click / keyboard on rows
+  dom.accountList.querySelectorAll('.account-row').forEach(row => {
+    const selectRow = () => {
+      const idx = parseInt(row.dataset.index, 10);
+      if (!isNaN(idx) && pool[idx]) renderAccount(pool[idx]);
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    row.addEventListener('click', selectRow);
+    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(); } });
+  });
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Roll random ──────────────────────────────────────────────────────────────
+function rollRandomAccount() {
+  const pool = getFilteredAccounts();
+  renderList(pool);
+  updateStats(allAccounts, pool);
+  if (!pool.length) { renderAccount(null); return; }
   const random = pool[Math.floor(Math.random() * pool.length)];
   renderAccount(random);
 }
 
-function setupRevealOnScroll() {
-  const items = document.querySelectorAll('.reveal');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) entry.target.classList.add('in-view');
+// ─── Refresh list (no random roll) ───────────────────────────────────────────
+function refreshList() {
+  const pool = getFilteredAccounts();
+  renderList(pool);
+  updateStats(allAccounts, pool);
+  // keep current card if still in pool, else pick first
+  if (currentAccount && pool.some(a => a.credential === currentAccount.credential)) {
+    document.querySelectorAll('.account-row').forEach(row => {
+      row.classList.toggle('active', row.dataset.credential === currentAccount.credential);
     });
-  }, { threshold: 0.16 });
-  items.forEach(el => observer.observe(el));
+  } else if (pool.length) {
+    renderAccount(pool[0]);
+  } else {
+    renderAccount(null);
+  }
 }
 
+// ─── Particles ────────────────────────────────────────────────────────────────
+function createParticles(total = 28) {
+  if (!dom.particles) return;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < total; i++) {
+    const p = document.createElement('span');
+    p.className = 'particle';
+    const size = (Math.random() * 6 + 2).toFixed(1);
+    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;bottom:${Math.random()*-120}px;animation-duration:${Math.random()*9+8}s;animation-delay:${Math.random()*-9}s`;
+    frag.appendChild(p);
+  }
+  dom.particles.appendChild(frag);
+}
+
+// ─── Scroll reveal ────────────────────────────────────────────────────────────
+function setupRevealOnScroll() {
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in-view'); });
+  }, { threshold: 0.16 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
 function setupEvents() {
   dom.scrollToPanel?.addEventListener('click', () => {
     dom.panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -187,20 +326,34 @@ function setupEvents() {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      dom.copyBtn.textContent = 'DA SAO CHEP';
-      setTimeout(() => (dom.copyBtn.textContent = 'SAO CHEP'), 1200);
+      dom.copyBtn.textContent = '✓ ĐÃ SAO CHÉP';
+      setTimeout(() => { dom.copyBtn.textContent = 'SAO CHÉP'; }, 1500);
     } catch {
-      dom.copyBtn.textContent = 'LOI COPY';
-      setTimeout(() => (dom.copyBtn.textContent = 'SAO CHEP'), 1200);
+      dom.copyBtn.textContent = 'LỖI COPY';
+      setTimeout(() => { dom.copyBtn.textContent = 'SAO CHÉP'; }, 1500);
     }
   });
 
-  // Filter chips
+  // filter chips → refresh list (don't random roll, keep context)
   document.querySelectorAll('input[name="filter"]').forEach(input => {
-    input.addEventListener('change', rollRandomAccount);
+    input.addEventListener('change', refreshList);
+  });
+
+  // search & sort → refresh list
+  let searchTimer;
+  dom.searchInput?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(refreshList, 220);
+  });
+
+  dom.sortSelect?.addEventListener('change', () => {
+    const pool = getFilteredAccounts();
+    renderList(pool);
+    updateStats(allAccounts, pool);
   });
 }
 
+// ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   createParticles();
   setupRevealOnScroll();
@@ -211,7 +364,6 @@ async function init() {
   dom.emptyState?.classList.add('hidden');
 
   await loadAccounts();
-
   setTimeout(rollRandomAccount, 650);
 }
 
