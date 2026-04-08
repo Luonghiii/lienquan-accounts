@@ -6,57 +6,98 @@
   let retryCount = 0;
   const MAX_RETRIES = 3;
 
-  // Parser
+  // Enhanced Parser - extract all fields
   function parseAccount(line) {
     line = line.trim();
     if (!line) return null;
 
-    if (line.includes('|') && !line.includes(':')) {
-      const parts = line.split('|');
-      return { username: parts[0], password: parts[1] || '', type: 'simple' };
-    }
-
-    if (line.includes(':') && (line.includes('Info =') || line.includes('result ='))) {
-      let before = line;
-      const infoIdx = line.indexOf('Info');
-      const resultIdx = line.indexOf('result =');
-      if (infoIdx > 0) before = line.slice(0, infoIdx).trim();
-      else if (resultIdx === 0) before = line.slice(resultIdx + 'result ='.length).trim();
-      const colonParts = before.split(':');
-      if (colonParts.length >= 2) {
-        return {
-          username: colonParts[0].trim(),
-          password: colonParts[1].split(' ')[0].trim(),
-          raw: line,
-          type: 'full'
-        };
+    let username = '', password = '', raw = line, type = 'simple';
+    
+    // Check if it's a result line with full info
+    if (line.startsWith('result =')) {
+      type = 'full';
+      const afterResult = line.replace(/^result\s*=\s*/, '').trim();
+      // Split by | to get credential first, then rest
+      const parts = afterResult.split('|');
+      const credentialPart = parts[0];
+      const rest = parts.slice(1).join('|');
+      
+      // Extract username:password
+      const colonMatch = credentialPart.match(/^([^:]+):([^:]+)$/);
+      if (colonMatch) {
+        username = colonMatch[1].trim();
+        password = colonMatch[2].trim();
+      } else {
+        // Fallback: try pipe
+        const pipeMatch = credentialPart.split('|');
+        if (pipeMatch.length >= 2) {
+          username = pipeMatch[0].trim();
+          password = pipeMatch[1].trim();
+        }
       }
+      
+      // Parse all other fields from rest
+      const info = parseInfoFields(rest);
+      return { username, password, raw, type, ...info };
+    } 
+    else if (line.includes('|') && !line.includes(':')) {
+      // Simple pipe format
+      const parts = line.split('|');
+      username = parts[0].trim();
+      password = parts[1] ? parts[1].trim() : '';
+      return { username, password, type: 'simple' };
     }
-
-    const colonParts = line.split(':');
-    if (colonParts.length >= 2) {
-      return { username: colonParts[0].trim(), password: colonParts[1].trim(), raw: line, type: 'fallback' };
+    else if (line.includes(':')) {
+      // Colon format (fallback)
+      const colonParts = line.split(':');
+      username = colonParts[0].trim();
+      password = colonParts[1] ? colonParts[1].trim() : '';
+      return { username, password, raw: line, type: 'fallback' };
     }
+    
     return null;
   }
 
-  function extractInfo(acc) {
-    if (acc.type === 'simple') return [];
-    const raw = acc.raw || '';
-    const items = [];
+  function parseInfoFields(text) {
+    const info = {};
+    
+    // Pattern: FIELD : value (with optional brackets and content after brackets)
     const patterns = [
-      { re: /RANK\s*:\s*([^\n|]+)/i, label: 'Rank' },
-      { re: /LEVEL\s*:\s*(\d+)/i, label: 'Level' },
-      { re: /HERO\s*:\s*(\d+)/i, label: 'Hero' },
-      { re: /SKIN\s*:\s*(\d+)/i, label: 'Skin' },
-      { re: /TRẠNG THÁI\s*:\s*([^\n|]+)/i, label: 'Trạng thái' },
-      { re: /BAN\s*:\s*(YES|NO)/i, label: 'Ban' }
-    ];
+      { key: 'NAME', re: /NAME\s*:\s*([^\n|]+)/i },
+      { key: 'RANK', re: /RANK\s*:\s*([^\n|]+)/i },
+      { key: 'LEVEL', re: /LEVEL\s*:\s*(\d+)/i },
+      { key: 'QH', re: /QH\s*:\s*(\d+)/i },
+      { key: 'HERO', re: /HERO\s*:\s*(\d+)/i },
+      { key: 'SKIN', re: /SKIN\s*:\s*(\d+)/i },
+      { key: 'BAN', re: /BAN\s*:\s*(YES|NO|N/A|N\/A)/i },
+      { key: 'EMAIL', re: /EMAIL\s*:\s*(YES|NO|ĐÃ XÁC THỰC|CHƯA XÁC THỰC|[^\n|]+)/i },
+      { key: 'SDT', re: /SDT\s*:\s*(YES|NO|[^\n|]+)/i },
+      { key: 'CMND', re: /CMND\s*:\s*(YES|NO|[^\n|]+)/i },
+      { key: 'AUTHEN', re: /AUTHEN\s*:\s*(YES|NO|[^\n|]+)/i },
+      { key: 'FB', re: /FB\s*:\s*(LIVE|DIE|[^\n|]+)/i },
+      { key: 'SÒ', re: /SÒ\s*:\s*(\d+|[^\n|]+)/i },
+      { key: 'QUỐC GIA', re: /QUỐC GIA\s*:\s*([^\n|]+)/i },
+      { key: 'LOGIN LẦN CUỐI', re: /LOGIN LẦN CUỐI\s*:\s*([^\n|]+)/i },
+      { key: 'SS', re: /SS\s*:\s*(\d+)\s*\[([^\]]+)\]/i },
+      { key: 'SSS', re: /SSS\s*:\s*(\d+)\s*\[([^\]]*)\]/i },
+      { key: 'ANIME', re: /ANIME\s*:\s*(\d+)\s*\[([^\]]*)\]/i },
+      { key: 'OTHER', re: /OTHER\s*:\s*(\d+)\s*\[([^\]]*)\]/i },
+      { key: 'TRẠNG THÁI', re: /TRẠNG THÁI\s*:\s*([^\n|]+)/i }
+    };
+
     for (const p of patterns) {
-      const m = raw.match(p.re);
-      if (m) items.push(`${p.label}: ${m[1].trim()}`);
+      const match = text.match(p.re);
+      if (match) {
+        if (p.key === 'SS' || p.key === 'SSS' || p.key === 'ANIME' || p.key === 'OTHER') {
+          info[`${p.key}_count`] = parseInt(match[1]) || 0;
+          info[`${p.key}_list`] = match[2] ? match[2].split(',').map(s => s.trim()).filter(Boolean) : [];
+        } else {
+          info[p.key] = match[1].trim();
+        }
+      }
     }
-    return items;
+
+    return info;
   }
 
   // UI helpers
@@ -136,7 +177,7 @@
     const filter = document.querySelector('input[name="filter"]:checked').value;
     if (filter === 'all') filteredAccounts = allAccounts;
     else if (filter === 'full') {
-      filteredAccounts = allAccounts.filter(acc => acc.type !== 'simple');
+      filteredAccounts = allAccounts.filter(acc => acc.type === 'full' || acc.type === 'fallback');
     } else if (filter === 'partial') {
       filteredAccounts = allAccounts.filter(acc => acc.type === 'simple');
     }
@@ -148,7 +189,8 @@
     return filteredAccounts[idx];
   }
 
-  function renderAccount(acc) {
+  // Render enhanced account card with all info
+  function renderEnhancedAccount(acc) {
     if (!acc) {
       hideCard();
       showState('emptyState');
@@ -156,24 +198,116 @@
       return;
     }
 
-    const credEl = document.getElementById('credential');
-    credEl.innerHTML = `<span class="neon-cyan">${acc.username}</span><span class="mx-2 text-slate-600">|</span><span class="neon-purple">${acc.password}</span>`;
-    credEl.classList.remove('fade-in');
-    void credEl.offsetWidth;
-    credEl.classList.add('fade-in');
+    const cardBody = document.querySelector('.account-card .card-body');
+    cardBody.innerHTML = '';
 
-    const infoEl = document.getElementById('info');
-    const infos = extractInfo(acc);
-    infoEl.innerHTML = infos.length ? infos.join('<span class="text-slate-600 mx-2">•</span>') : '<span class="text-slate-500">Chỉ có username và mật khẩu</span>';
+    // Credential section
+    const credDiv = document.createElement('div');
+    credDiv.className = 'credential-section';
+    credDiv.innerHTML = `
+      <div class="credential-line">
+        <span class="neon-cyan">${acc.username}</span>
+        <span class="separator">|</span>
+        <span class="neon-purple">${acc.password}</span>
+      </div>
+    `;
+    cardBody.appendChild(credDiv);
 
-    document.getElementById('source').textContent = `Loại: ${acc.type}`;
+    // Info grid
+    const grid = document.createElement('div');
+    grid.className = 'info-grid';
+
+    // Map of field -> label
+    const fieldMap = [
+      { key: 'NAME', label: 'Tên' },
+      { key: 'RANK', label: 'Rank' },
+      { key: 'LEVEL', label: 'Level' },
+      { key: 'HERO', label: 'Hero' },
+      { key: 'SKIN', label: 'Skin' },
+      { key: 'BAN', label: 'BAN', badge: true },
+      { key: 'EMAIL', label: 'Email', badge: true },
+      { key: 'SDT', label: 'SDT', badge: true },
+      { key: 'CMND', label: 'CMND', badge: true },
+      { key: 'AUTHEN', label: 'Auth', badge: true },
+      { key: 'FB', label: 'FB', badge: true },
+      { key: 'SÒ', label: 'Sò' },
+      { key: 'QUỐC GIA', label: 'Quốc gia' },
+      { key: 'LOGIN LẦN CUỐI', label: 'Login cuối' },
+      { key: 'SS_count', label: 'SS Count' },
+      { key: 'SSS_count', label: 'SSS Count' },
+      { key: 'ANIME_count', label: 'Anime' },
+      { key: 'OTHER_count', label: 'Other' },
+      { key: 'TRẠNG THÁI', label: 'Trạng thái', badge: true }
+    ];
+
+    fieldMap.forEach(field => {
+      const val = acc[field.key];
+      if (val === undefined || val === '' || val === null) return;
+      
+      const item = document.createElement('div');
+      item.className = 'info-item';
+      
+      if (field.badge) {
+        item.innerHTML = `
+          <span class="label">${field.label}:</span>
+          <span class="badge ${getBadgeClass(val, field.key)}">${val}</span>
+        `;
+      } else {
+        item.innerHTML = `
+          <span class="label">${field.label}:</span>
+          <span class="value">${val}</span>
+        `;
+      }
+      
+      grid.appendChild(item);
+    });
+
+    cardBody.appendChild(grid);
+
+    // Skin lists (if any)
+    if (acc.SS_list && acc.SS_list.length > 0) {
+      const ssSection = document.createElement('div');
+      ssSection.className = 'list-section';
+      ssSection.innerHTML = `<div class="list-title">Skins SS (${acc.SS_list.length}):</div><div class="skin-list">${acc.SS_list.map(s => `<span class="skin-tag">${s}</span>`).join('')}</div>`;
+      cardBody.appendChild(ssSection);
+    }
+    if (acc.SSS_list && acc.SSS_list.length > 0) {
+      const sssSection = document.createElement('div');
+      sssSection.className = 'list-section';
+      sssSection.innerHTML = `<div class="list-title">Skins SSS (${acc.SSS_list.length}):</div><div class="skin-list">${acc.SSS_list.map(s => `<span class="skin-tag">${s}</span>`).join('')}</div>`;
+      cardBody.appendChild(sssSection);
+    }
+
+    // Source
+    const source = document.createElement('div');
+    source.className = 'source';
+    source.textContent = `Loại: ${acc.type}`;
+    cardBody.appendChild(source);
+
     showCard();
+  }
+
+  function getBadgeClass(value, key) {
+    const v = String(value).toUpperCase();
+    if (key === 'BAN') {
+      return v === 'YES' ? 'badge-danger' : 'badge-success';
+    }
+    if (key === 'EMAIL' || key === 'SDT' || key === 'CMND') {
+      return (v === 'YES' || v.includes('ĐÃ XÁC THỰC')) ? 'badge-success' : 'badge-warning';
+    }
+    if (key === 'FB') {
+      return v === 'LIVE' ? 'badge-success' : 'badge-danger';
+    }
+    if (key === 'TRẠNG THÁI') {
+      return v.includes('FULL') ? 'badge-primary' : 'badge-secondary';
+    }
+    return 'badge-secondary';
   }
 
   function roll() {
     applyFilter();
     current = getRandom();
-    renderAccount(current);
+    renderEnhancedAccount(current);
   }
 
   function copyToClipboard() {
@@ -190,6 +324,7 @@
 
   // Events
   document.getElementById('rollBtn').addEventListener('click', roll);
+  document.getElementById('rollBtnMain').addEventListener('click', roll);
   document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
   document.querySelectorAll('input[name="filter"]').forEach(r => r.addEventListener('change', roll));
 
