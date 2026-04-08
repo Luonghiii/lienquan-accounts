@@ -355,3 +355,10 @@ function setupInfiniteScroll() {
 
   infiniteScrollObserver.observe(sentinel);
 }
+
+// Đảm bảo code chạy ngay cả khi dán vào console hoặc load trang
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => loadAccounts());
+} else {
+    loadAccounts();
+}
