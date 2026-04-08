@@ -2,90 +2,73 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Liên Quân Account Share | Premium UI</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liên Quân Account Share | Neon Galaxy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
   <header class="hero">
-    <div class="hero-bg"></div>
-    <div id="particles" class="hero-particles"></div>
-    
+    <img class="hero-banner" src="https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1800&q=80" alt="Banner game phong cảnh neon" />
+    <div class="hero-overlay"></div>
+    <div class="hero-glow glow-1"></div>
+    <div class="hero-glow glow-2"></div>
+    <div id="particles" class="hero-particles" aria-hidden="true"></div>
+
     <div class="hero-content">
-      <div class="badge animate-fade-in">MỞ CỬA MIỄN PHÍ</div>
-      <h1 class="hero-title animate-title">LIÊN QUÂN <br><span>ACCOUNT SHARE</span></h1>
-      <p class="hero-subtitle animate-fade-in delay-1">Hệ thống chia sẻ tài khoản cộng đồng. Dữ liệu được cập nhật liên tục từ tệp tin hệ thống.</p>
-      
-      <div class="hero-actions animate-fade-in delay-2">
-        <button id="rollBtnMain" class="btn-primary">ROLL NGAY</button>
-        <div class="hero-hint">Nhấn <span>Space</span> để quay nhanh</div>
+      <span class="badge">GIAO DIỆN MỚI 2026</span>
+      <h1 class="hero-title">LIÊN QUÂN<br><span>ACCOUNT SHARE</span></h1>
+      <p class="hero-subtitle">Thiết kế mới với banner lớn, hiệu ứng chuyển động mượt và không gian neon hiện đại. Trải nghiệm random account sinh động hơn ngay khi mở trang.</p>
+      <div class="hero-actions">
+        <button id="rollBtnMain" class="btn btn-primary">ROLL NGAY</button>
+        <button id="scrollToPanel" class="btn btn-ghost">XEM DANH SÁCH</button>
       </div>
     </div>
   </header>
 
-  <main class="container">
-    <section class="controls-card">
+  <main class="container" id="panel">
+    <section class="controls-card reveal">
       <div class="filter-group">
-        <label class="filter-chip">
-          <input type="radio" name="filter" value="all" checked>
-          <span>Tất cả</span>
-        </label>
-        <label class="filter-chip">
-          <input type="radio" name="filter" value="full">
-          <span>Có thông tin</span>
-        </label>
-        <label class="filter-chip">
-          <input type="radio" name="filter" value="partial">
-          <span>Chỉ Nick|Pass</span>
-        </label>
+        <label class="filter-chip"><input type="radio" name="filter" value="all" checked><span>Tất cả</span></label>
+        <label class="filter-chip"><input type="radio" name="filter" value="full"><span>Có thông tin</span></label>
+        <label class="filter-chip"><input type="radio" name="filter" value="partial"><span>Nick | Pass</span></label>
       </div>
-
       <div class="action-group">
-        <button id="rollBtn" class="btn-roll">XOAY SỐ</button>
-        <button id="copyBtn" class="btn-copy">SAO CHÉP</button>
+        <button id="rollBtn" class="btn btn-primary">XOAY SỐ</button>
+        <button id="copyBtn" class="btn btn-ghost">SAO CHÉP</button>
       </div>
     </section>
 
-    <div id="displayArea">
+    <section id="displayArea" class="reveal">
       <div id="loadingState" class="state-box">
         <div class="loader"></div>
-        <p>Đang quét dữ liệu từ server...</p>
+        <p>Đang chuẩn bị dữ liệu và hiệu ứng...</p>
       </div>
 
-      <div id="accountCard" class="account-card hidden">
+      <article id="accountCard" class="account-card hidden">
         <div class="card-glow"></div>
         <div class="card-inner">
           <div class="card-top">
             <span class="acc-type-tag" id="accType">FULL INFO</span>
           </div>
-          
-          <div class="credential-box" id="credential">
-            </div>
-
-          <div id="infoGrid" class="info-grid">
-            </div>
-
-          <div id="skinSection" class="skin-section">
-            </div>
+          <div class="credential-box" id="credential"></div>
+          <div id="infoGrid" class="info-grid"></div>
+          <div id="skinSection" class="skin-section"></div>
         </div>
-      </div>
+      </article>
 
       <div id="emptyState" class="state-box hidden">
-        <p>Không tìm thấy tài khoản nào!</p>
-        <small>Vui lòng kiểm tra các file acclq_*.txt trong thư mục data/</small>
+        <p>Chưa có dữ liệu tài khoản.</p>
+        <small>Hãy thêm file `acclq_*.txt` vào thư mục data/ để hiển thị dữ liệu.</small>
       </div>
-    </div>
+    </section>
 
-    <div class="stats-footer">
-      Tổng cộng: <strong id="countDisplay">0</strong> tài khoản đã sẵn sàng
-    </div>
+    <div class="stats-footer reveal">Tổng cộng: <strong id="countDisplay">0</strong> tài khoản đã sẵn sàng.</div>
   </main>
 
-  <footer class="footer">
-    <p>&copy; 2024 Liên Quân Share. Powered by OpenClaw</p>
-  </footer>
+  <footer class="footer">© 2026 Liên Quân Share · Redesigned with Motion UI</footer>
 
   <script src="js/app.js"></script>
 </body>

@@ -1,167 +1,141 @@
-:root {
-  --primary: #06b6d4;
-  --secondary: #a855f7;
-  --bg: #030712;
-  --card-bg: rgba(17, 24, 39, 0.7);
-  --border: rgba(255, 255, 255, 0.1);
+const $ = (id) => document.getElementById(id);
+
+const dom = {
+  particles: $('particles'),
+  scrollToPanel: $('scrollToPanel'),
+  panel: $('panel'),
+  loadingState: $('loadingState'),
+  accountCard: $('accountCard'),
+  emptyState: $('emptyState'),
+  credential: $('credential'),
+  infoGrid: $('infoGrid'),
+  skinSection: $('skinSection'),
+  accType: $('accType'),
+  countDisplay: $('countDisplay'),
+  rollBtns: [$('rollBtnMain'), $('rollBtn')].filter(Boolean),
+  copyBtn: $('copyBtn')
+};
+
+const sampleAccounts = [
+  {
+    type: 'FULL INFO',
+    credential: 'skypro89|abc123456',
+    info: { Rank: 'Cao Thủ', Level: '30', Hero: '112', Skin: '240' },
+    skins: ['Murad Siêu Việt', 'Violet Nữ Hoàng Pháo Hoa', 'Nakroth Bboy']
+  },
+  {
+    type: 'NICK | PASS',
+    credential: 'lq_mobile01|pass999',
+    info: { Note: 'Tài khoản cơ bản', Server: 'Mặt Trời' },
+    skins: ['Butterfly Huyền Thoại']
+  },
+  {
+    type: 'FULL INFO',
+    credential: 'pro.gamer|qwerty123',
+    info: { Rank: 'Tinh Anh', Level: '27', Hero: '98', Skin: '178' },
+    skins: ['Florentino Chí Tôn Kiếm Tiên', 'Hayate Tử Thần Vũ Trụ']
+  }
+];
+
+function createParticles(total = 28) {
+  if (!dom.particles) return;
+  const frag = document.createDocumentFragment();
+
+  for (let i = 0; i < total; i++) {
+    const p = document.createElement('span');
+    p.className = 'particle';
+    const size = (Math.random() * 6 + 2).toFixed(1);
+
+    p.style.width = `${size}px`;
+    p.style.height = `${size}px`;
+    p.style.left = `${Math.random() * 100}%`;
+    p.style.bottom = `${Math.random() * -120}px`;
+    p.style.animationDuration = `${Math.random() * 9 + 8}s`;
+    p.style.animationDelay = `${Math.random() * -9}s`;
+
+    frag.appendChild(p);
+  }
+
+  dom.particles.appendChild(frag);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+function renderAccount(account) {
+  dom.loadingState?.classList.add('hidden');
+  dom.emptyState?.classList.add('hidden');
+  dom.accountCard?.classList.remove('hidden');
 
-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: var(--bg);
-  color: #f8fafc;
-  line-height: 1.6;
-  overflow-x: hidden;
+  if (!account) {
+    dom.accountCard?.classList.add('hidden');
+    dom.emptyState?.classList.remove('hidden');
+    return;
+  }
+
+  if (dom.accType) dom.accType.textContent = account.type;
+  if (dom.credential) dom.credential.textContent = account.credential;
+
+  if (dom.infoGrid) {
+    dom.infoGrid.innerHTML = Object.entries(account.info)
+      .map(([label, value]) => `<div class="info-item"><span class="label">${label}</span><span class="value">${value}</span></div>`)
+      .join('');
+  }
+
+  if (dom.skinSection) {
+    dom.skinSection.innerHTML = account.skins
+      .map((skin) => `<span class="skin-tag">${skin}</span>`)
+      .join('');
+  }
 }
 
-/* Hero & Background */
-.hero {
-  position: relative;
-  height: 70vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow: hidden;
+function rollRandomAccount() {
+  if (!sampleAccounts.length) {
+    renderAccount(null);
+    return;
+  }
+
+  const random = sampleAccounts[Math.floor(Math.random() * sampleAccounts.length)];
+  renderAccount(random);
 }
 
-.hero-bg {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #030712 100%);
-  z-index: -1;
+function setupRevealOnScroll() {
+  const items = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) entry.target.classList.add('in-view');
+    });
+  }, { threshold: 0.16 });
+
+  items.forEach((el) => observer.observe(el));
 }
 
-.hero-title {
-  font-size: clamp(2.5rem, 8vw, 4.5rem);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+function setupEvents() {
+  dom.scrollToPanel?.addEventListener('click', () => {
+    dom.panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  dom.rollBtns.forEach((btn) => btn.addEventListener('click', rollRandomAccount));
+
+  dom.copyBtn?.addEventListener('click', async () => {
+    const text = dom.credential?.textContent?.trim();
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      dom.copyBtn.textContent = 'ĐÃ SAO CHÉP';
+      setTimeout(() => (dom.copyBtn.textContent = 'SAO CHÉP'), 1200);
+    } catch {
+      dom.copyBtn.textContent = 'KHÔNG COPY ĐƯỢC';
+      setTimeout(() => (dom.copyBtn.textContent = 'SAO CHÉP'), 1200);
+    }
+  });
 }
 
-.hero-title span {
-  background: linear-gradient(90deg, var(--primary), var(--secondary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+function init() {
+  createParticles();
+  setupRevealOnScroll();
+  setupEvents();
+
+  dom.countDisplay.textContent = String(sampleAccounts.length);
+  setTimeout(rollRandomAccount, 650);
 }
 
-/* Glass Card */
-.controls-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 2rem;
-  margin-top: -100px;
-  position: relative;
-  z-index: 20;
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-}
-
-/* Filters */
-.filter-group {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 2rem;
-}
-
-.filter-chip input { display: none; }
-.filter-chip span {
-  padding: 8px 20px;
-  border-radius: 99px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: 0.3s;
-  font-size: 0.9rem;
-}
-
-.filter-chip input:checked + span {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
-}
-
-/* Buttons */
-.btn-primary, .btn-roll {
-  background: linear-gradient(90deg, var(--primary), var(--secondary));
-  border: none;
-  padding: 16px 40px;
-  border-radius: 14px;
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
-  transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.btn-roll:hover { transform: scale(1.05); box-shadow: 0 10px 25px rgba(168, 85, 247, 0.4); }
-
-/* Account Card */
-.account-card {
-  margin-top: 2rem;
-  background: #0f172a;
-  border-radius: 24px;
-  padding: 2.5rem;
-  border: 1px solid var(--primary);
-  position: relative;
-  overflow: hidden;
-  animation: slideUp 0.5s ease-out;
-}
-
-.credential-box {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.8rem;
-  text-align: center;
-  padding: 1.5rem;
-  background: rgba(0,0,0,0.3);
-  border-radius: 16px;
-  margin-bottom: 2rem;
-  word-break: break-all;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 15px;
-}
-
-.info-item {
-  background: rgba(255,255,255,0.03);
-  padding: 10px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-}
-
-.info-item .label { color: #94a3b8; display: block; }
-.info-item .value { color: var(--primary); font-weight: 600; }
-
-/* Skins */
-.skin-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  background: rgba(168, 85, 247, 0.2);
-  border: 1px solid var(--secondary);
-  border-radius: 6px;
-  font-size: 0.75rem;
-  margin: 4px;
-}
-
-/* Animations */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.hidden { display: none; }
-
-/* Responsive */
-@media (max-width: 640px) {
-  .hero-title { font-size: 2.5rem; }
-  .controls-card { margin-top: -50px; padding: 1.5rem; }
-  .credential-box { font-size: 1.2rem; }
-}
+document.addEventListener('DOMContentLoaded', init);
