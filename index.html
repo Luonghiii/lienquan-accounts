@@ -16,11 +16,10 @@
     <div class="hero-glow glow-1"></div>
     <div class="hero-glow glow-2"></div>
     <div id="particles" class="hero-particles" aria-hidden="true"></div>
-
     <div class="hero-content">
       <span class="badge">GIAO DIỆN MỚI 2026</span>
       <h1 class="hero-title">LIÊN QUÂN<br><span>ACCOUNT SHARE</span></h1>
-      <p class="hero-subtitle">Thiết kế mới với banner lớn, hiệu ứng chuyển động mượt và không gian neon hiện đại. Trải nghiệm random account sinh động hơn ngay khi mở trang.</p>
+      <p class="hero-subtitle">Thiết kế mới với banner lớn, hiệu ứng chuyển động mượt và không gian neon hiện đại.</p>
       <div class="hero-actions">
         <button id="rollBtnMain" class="btn btn-primary">ROLL NGAY</button>
         <button id="scrollToPanel" class="btn btn-ghost">XEM DANH SÁCH</button>
@@ -29,18 +28,49 @@
   </header>
 
   <main class="container" id="panel">
+
+    <!-- CONTROLS CARD -->
     <section class="controls-card reveal">
-      <div class="filter-group">
-        <label class="filter-chip"><input type="radio" name="filter" value="all" checked><span>Tất cả</span></label>
-        <label class="filter-chip"><input type="radio" name="filter" value="full"><span>Có thông tin</span></label>
-        <label class="filter-chip"><input type="radio" name="filter" value="partial"><span>Nick | Pass</span></label>
+      <!-- Toolbar: search + sort -->
+      <div class="toolbar-top">
+        <div class="search-box">
+          <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="searchInput" type="text" placeholder="Tìm username, rank, quốc gia..." autocomplete="off" />
+          <button id="clearSearch" class="clear-btn" title="Xóa tìm kiếm" aria-label="Xóa">×</button>
+        </div>
+        <div class="sort-box">
+          <select id="sortSelect" aria-label="Sắp xếp">
+            <option value="random">🎲 Ngẫu nhiên</option>
+            <option value="skins">✨ Nhiều skin nhất</option>
+            <option value="user">🔤 Username A–Z</option>
+          </select>
+        </div>
       </div>
+
+      <!-- Filter chips -->
+      <div class="filter-group" role="group" aria-label="Lọc tài khoản">
+        <label class="filter-chip"><input type="radio" name="filter" value="all" checked><span>Tất cả <em id="countAll">0</em></span></label>
+        <label class="filter-chip"><input type="radio" name="filter" value="full"><span>Full info <em id="countFull">0</em></span></label>
+        <label class="filter-chip"><input type="radio" name="filter" value="partial"><span>Nick | Pass <em id="countPartial">0</em></span></label>
+        <label class="filter-chip"><input type="radio" name="filter" value="skin"><span>Có skin <em id="countSkin">0</em></span></label>
+        <label class="filter-chip"><input type="radio" name="filter" value="white"><span>Acc trắng <em id="countWhite">0</em></span></label>
+      </div>
+
+      <!-- Action buttons -->
       <div class="action-group">
         <button id="rollBtn" class="btn btn-primary">XOAY SỐ</button>
         <button id="copyBtn" class="btn btn-ghost">SAO CHÉP</button>
       </div>
+
+      <!-- Stats strip -->
+      <div class="stats-strip">
+        <div class="mini-stat"><span class="mini-label">Tổng acc</span><strong id="countDisplay">0</strong></div>
+        <div class="mini-stat"><span class="mini-label">Đang hiển thị</span><strong id="visibleCount">0</strong></div>
+        <div class="mini-stat"><span class="mini-label">Có skin</span><strong id="skinCount">0</strong></div>
+      </div>
     </section>
 
+    <!-- DISPLAY AREA -->
     <section id="displayArea" class="reveal">
       <div id="loadingState" class="state-box">
         <div class="loader"></div>
@@ -52,6 +82,7 @@
         <div class="card-inner">
           <div class="card-top">
             <span class="acc-type-tag" id="accType">FULL INFO</span>
+            <span class="acc-status-badge" id="accStatus">SẴN SÀNG</span>
           </div>
           <div class="credential-box" id="credential"></div>
           <div id="infoGrid" class="info-grid"></div>
@@ -60,12 +91,20 @@
       </article>
 
       <div id="emptyState" class="state-box hidden">
-        <p>Chưa có dữ liệu tài khoản.</p>
-        <small>Hãy thêm file `acclq_*.txt` vào thư mục data/ để hiển thị dữ liệu.</small>
+        <p>❌ Không có tài khoản phù hợp bộ lọc hiện tại.</p>
+        <small>Hãy đổi từ khóa, bộ lọc hoặc thêm file dữ liệu vào thư mục <code>data/</code>.</small>
       </div>
     </section>
 
-    <div class="stats-footer reveal">Tổng cộng: <strong id="countDisplay">0</strong> tài khoản đã sẵn sàng.</div>
+    <!-- ACCOUNT LIST -->
+    <section class="list-card reveal">
+      <div class="list-head">
+        <h2>Danh sách tài khoản</h2>
+        <p>Chạm vào một dòng để xem chi tiết ngay.</p>
+      </div>
+      <div id="accountList" class="account-list"></div>
+    </section>
+
   </main>
 
   <footer class="footer">© 2026 Liên Quân Share · Redesigned with Motion UI</footer>
