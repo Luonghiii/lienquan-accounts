@@ -3,99 +3,88 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Liên Quân Account Share</title>
+  <title>Liên Quân Account Share | Premium UI</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <!-- Hero Section -->
-  <section class="hero">
-    <div class="hero-bg" id="heroBg"></div>
-    <div class="hero-particles" id="particles"></div>
+  <header class="hero">
+    <div class="hero-bg"></div>
+    <div id="particles" class="hero-particles"></div>
+    
     <div class="hero-content">
-      <h1 class="hero-title animate-fade-in-up">LIÊN QUÂN ACCOUNT SHARE</h1>
-      <p class="hero-subtitle animate-fade-in-up delay-1">Random tài khoản từ file dữ liệu</p>
-      <div class="hero-features animate-fade-in-up delay-2">
-        <span class="feature">Miễn phí</span>
-        <span class="feature">Nhanh</span>
-        <span class="feature">Không cần login</span>
-      </div>
-      <div class="hero-cta animate-fade-in-up delay-3">
-        <button id="rollBtn" class="btn-roll">
-          <span class="btn-glow"></span>
-          ROLL NGAY
-        </button>
+      <div class="badge animate-fade-in">MỞ CỬA MIỄN PHÍ</div>
+      <h1 class="hero-title animate-title">LIÊN QUÂN <br><span>ACCOUNT SHARE</span></h1>
+      <p class="hero-subtitle animate-fade-in delay-1">Hệ thống chia sẻ tài khoản cộng đồng. Dữ liệu được cập nhật liên tục từ tệp tin hệ thống.</p>
+      
+      <div class="hero-actions animate-fade-in delay-2">
+        <button id="rollBtnMain" class="btn-primary">ROLL NGAY</button>
+        <div class="hero-hint">Nhấn <span>Space</span> để quay nhanh</div>
       </div>
     </div>
-  </section>
+  </header>
 
-  <!-- Main Content -->
   <main class="container">
-    <div class="controls">
-      <div class="buttons">
-        <button id="rollBtn" class="btn-roll">
-          <span class="btn-glow"></span>
-          ROLL
-        </button>
-        <button id="copyBtn" class="btn-copy">
-          COPY
-        </button>
-      </div>
-      
-      <div class="filters">
-        <label class="filter-label">
+    <section class="controls-card">
+      <div class="filter-group">
+        <label class="filter-chip">
           <input type="radio" name="filter" value="all" checked>
-          Tất cả
+          <span>Tất cả</span>
         </label>
-        <label class="filter-label">
+        <label class="filter-chip">
           <input type="radio" name="filter" value="full">
-          Chỉ FULL
+          <span>Có thông tin</span>
         </label>
-        <label class="filter-label">
+        <label class="filter-chip">
           <input type="radio" name="filter" value="partial">
-          Chỉ MỖI SỐ
+          <span>Chỉ Nick|Pass</span>
         </label>
       </div>
-      
-      <p class="hint">Nhấn Space để Roll • Ctrl+C để copy</p>
-    </div>
 
-    <!-- Account Card -->
-    <div id="accountCard" class="account-card">
-      <div class="card-rotate"></div>
-      <div class="card-header">
-        <span class="card-badge">ACCOUNT</span>
+      <div class="action-group">
+        <button id="rollBtn" class="btn-roll">XOAY SỐ</button>
+        <button id="copyBtn" class="btn-copy">SAO CHÉP</button>
       </div>
-      <div class="card-body">
-        <div class="credential" id="credential"></div>
-        <div class="info" id="info"></div>
-        <div class="source" id="source"></div>
+    </section>
+
+    <div id="displayArea">
+      <div id="loadingState" class="state-box">
+        <div class="loader"></div>
+        <p>Đang quét dữ liệu từ server...</p>
+      </div>
+
+      <div id="accountCard" class="account-card hidden">
+        <div class="card-glow"></div>
+        <div class="card-inner">
+          <div class="card-top">
+            <span class="acc-type-tag" id="accType">FULL INFO</span>
+          </div>
+          
+          <div class="credential-box" id="credential">
+            </div>
+
+          <div id="infoGrid" class="info-grid">
+            </div>
+
+          <div id="skinSection" class="skin-section">
+            </div>
+        </div>
+      </div>
+
+      <div id="emptyState" class="state-box hidden">
+        <p>Không tìm thấy tài khoản nào!</p>
+        <small>Vui lòng kiểm tra các file acclq_*.txt trong thư mục data/</small>
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div id="loadingState" class="state-message">
-      <div class="spinner"></div>
-      <p>Đang tải dữ liệu...</p>
-      <p class="sub">Nếu không thấy, hãy upload acclq*.txt vào thư mục data/</p>
-    </div>
-
-    <!-- Empty State -->
-    <div id="emptyState" class="state-message hidden">
-      <p>Không tìm thấy file acclq*.txt</p>
-      <p class="sub">Upload vào thư mục data/ hoặc thử lại</p>
-    </div>
-
-    <!-- Counter -->
-    <div class="counter">
-      Đã tải: <span id="countDisplay">0</span> accounts
+    <div class="stats-footer">
+      Tổng cộng: <strong id="countDisplay">0</strong> tài khoản đã sẵn sàng
     </div>
   </main>
 
-  <!-- Footer -->
   <footer class="footer">
-    Liên Quân Account Share | Powered by OpenClaw
+    <p>&copy; 2024 Liên Quân Share. Powered by OpenClaw</p>
   </footer>
 
   <script src="js/app.js"></script>
