@@ -67,6 +67,25 @@
     document.getElementById(id).classList.remove('hidden');
   }
 
+  // Create particles for hero section
+  function createParticles() {
+    const container = document.getElementById('particles');
+    if (!container) return;
+    const particleCount = window.innerWidth < 768 ? 15 : 30;
+    for (let i = 0; i < particleCount; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = Math.random() * 3 + 1;
+      p.style.width = size + 'px';
+      p.style.height = size + 'px';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.top = Math.random() * 100 + '%';
+      p.style.animationDelay = Math.random() * 15 + 's';
+      p.style.animationDuration = (Math.random() * 10 + 10) + 's';
+      container.appendChild(p);
+    }
+  }
+
   // Data loading with retry
   async function loadData() {
     const fileNames = ['data/acclq1.txt', 'data/acclq2.txt', 'data/acclq3.txt'];
@@ -182,6 +201,9 @@
   });
 
   // Init
-  loadData();
+  document.addEventListener('DOMContentLoaded', () => {
+    createParticles();
+    loadData();
+  });
   console.log('Lien Quan Account Share initialized');
 })();
