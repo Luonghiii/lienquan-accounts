@@ -296,7 +296,7 @@ function updateFilterCounts() {
 function getFilteredAccounts() {
   const activeFilter = document.querySelector('input[name="filter"]:checked')?.value || 'all';
   const keyword = dom.searchInput?.value.trim().toLowerCase() || '';
-  const sortBy = dom.sortSelect?.value || 'random';
+  const sortBy = dom.sortSelect?.value || 'latest';
 
   let pool = [...allAccounts];
 
@@ -318,7 +318,7 @@ function getFilteredAccounts() {
   if (sortBy === 'latest')  pool.sort((a, b) => b.loginTimestamp - a.loginTimestamp);
   if (sortBy === 'skins')   pool.sort((a, b) => b.skinCount - a.skinCount);
   if (sortBy === 'user')    pool.sort((a, b) => a.username.localeCompare(b.username));
-  if (sortBy === 'random')  pool.sort(() => Math.random() - 0.5);
+  if (sortBy === 'random')  fisherYatesShuffle(pool);
 
   return pool;
 }
@@ -497,6 +497,21 @@ function setupInfiniteScroll() {
   infiniteScrollObserver.observe(sentinel);
 }
 
+function fisherYatesShuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function debounce(fn, wait = 200) {
+  let timer = null;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
+}
+
 function pickRandomAccount() {
   const filtered = getFilteredAccounts();
   if (!filtered.length) {
@@ -553,7 +568,8 @@ function initEvents() {
   dom.rollBtns.forEach(btn => btn.addEventListener('click', pickRandomAccount));
   dom.copyBtn?.addEventListener('click', copyCurrentAccount);
 
-  dom.searchInput?.addEventListener('input', () => refreshView({ keepCurrent: true }));
+  const debouncedSearch = debounce(() => refreshView({ keepCurrent: true }), 180);
+  dom.searchInput?.addEventListener('input', debouncedSearch);
   dom.sortSelect?.addEventListener('change', () => refreshView({ keepCurrent: true }));
 
   document.querySelectorAll('input[name="filter"]').forEach(input => {

@@ -1,8 +1,8 @@
 :root {
   --bg: #050611;
-  --bg-soft: #0b1022;
-  --panel: rgba(11, 14, 31, 0.78);
-  --panel-strong: rgba(9, 12, 28, 0.92);
+  --bg-soft: #101937;
+  --panel: rgba(20, 28, 56, 0.86);
+  --panel-strong: rgba(18, 24, 48, 0.95);
   --stroke: rgba(255, 255, 255, 0.12);
   --stroke-strong: rgba(255, 255, 255, 0.2);
   --text: #f8fbff;
@@ -222,7 +222,7 @@ select {
 .state-box,
 .stats-footer,
 .list-card {
-  background: var(--panel);
+  background: linear-gradient(160deg, rgba(24, 34, 68, 0.9), rgba(12, 18, 40, 0.88));
   border: 1px solid var(--stroke);
   border-radius: 24px;
   backdrop-filter: blur(10px);
@@ -481,6 +481,7 @@ select {
 .list-card {
   margin-top: 1rem;
   padding: 1.2rem;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
 }
 
 .list-head {
