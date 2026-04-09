@@ -492,7 +492,7 @@ select {
 .account-list {
   display: grid;
   gap: 0.75rem;
-  max-height: 560px;
+  max-height: min(72vh, 980px);
   overflow: auto;
   padding-right: 0.25rem;
 }

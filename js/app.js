@@ -34,6 +34,13 @@ let infiniteScrollObserver = null;
 
 // ─── Parse CSV ─────────────────────────────────────────────────────────────────
 function parseCSV(text) {
+  const rows = parseCSVText(text);
+  if (!rows.length) return [];
+
+  const headers = rows[0].map(h => h.trim().replace(/^\uFEFF/, ''));
+  const accounts = [];
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i].map(c => c.trim());
   const lines = text.trim().split(/\r?\n/);
   if (!lines.length) return [];
 
@@ -54,6 +61,8 @@ function parseCSV(text) {
     const heroCount = normalizeInfoValue(obj['Tuong'], { keepZero: false });
     const country = normalizeInfoValue(obj['QuocGia']) || 'N/A';
     const rawStatus = normalizeInfoValue(obj['TrangThai']) || 'N/A';
+    const email = normalizeInfoValue(obj['Email']) || 'N/A';
+    const phone = normalizeInfoValue(obj['SĐT']) || 'N/A';
     const skinCount = parseInt(obj['Skin_Count'] || '0', 10) || 0;
     const loginDate = (obj['Login_Cuoi'] || '').trim();
 
@@ -74,6 +83,9 @@ function parseCSV(text) {
         'Tướng': heroCount || 'N/A',
         Skin: obj['Skin_Count'] || '0',
         'Quốc Gia': country,
+        Email: email,
+        'SĐT': phone,
+        'Login Cuối': loginDate || 'N/A',
         'Trạng Thái': rawStatus,
       },
       skins: skinList,
@@ -89,6 +101,17 @@ function parseCSV(text) {
   return accounts;
 }
 
+function parseCSVText(text) {
+  const rows = [];
+  let cols = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (ch === '"') {
+      const next = text[i + 1];
 function parseCSVRow(row) {
   const cols = [];
   let current = '';
@@ -114,6 +137,26 @@ function parseCSVRow(row) {
       continue;
     }
 
+    if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      cols.push(current);
+      const hasData = cols.some(col => String(col).trim() !== '');
+      if (hasData) rows.push(cols);
+      cols = [];
+      current = '';
+      continue;
+    }
+
+    current += ch;
+  }
+
+  if (current.length || cols.length) {
+    cols.push(current);
+    const hasData = cols.some(col => String(col).trim() !== '');
+    if (hasData) rows.push(cols);
+  }
+
+  return rows;
     current += ch;
   }
 
@@ -266,6 +309,7 @@ function getFilteredAccounts() {
   // search
   if (keyword) {
     pool = pool.filter(a =>
+      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''} ${a.info['Email'] || ''} ${a.info['SĐT'] || ''}`.toLowerCase().includes(keyword)
       `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''}`.toLowerCase().includes(keyword)
     );
   }
@@ -447,7 +491,7 @@ function setupInfiniteScroll() {
         }
       });
     },
-    { root: null, rootMargin: '100px', threshold: 0 }
+    { root: dom.accountList, rootMargin: '120px', threshold: 0 }
   );
 
   infiniteScrollObserver.observe(sentinel);
