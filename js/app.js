@@ -32,25 +32,25 @@ let currentPool = [];
 let renderedCount = 0;
 let infiniteScrollObserver = null;
 
-// ─── Parse CSV ─────────────────────────────────────────────────────────────────
+// ─── Parse CSV ────────────────────────────────────────────────────────────
 function parseCSV(text) {
-  const rows = parseCSVText(text);
-  if (!rows.length) return [];
+  const lines = String(text || '')
+    .split(/\r?\n/)
+    .filter(line => line.trim() !== '');
 
-  const headers = rows[0].map(h => h.trim().replace(/^\uFEFF/, ''));
-  const accounts = [];
-  for (let i = 1; i < rows.length; i++) {
-    const cols = rows[i].map(c => c.trim());
-  const lines = text.trim().split(/\r?\n/);
   if (!lines.length) return [];
 
   const headers = parseCSVRow(lines[0]).map(h => h.trim().replace(/^\uFEFF/, ''));
   const accounts = [];
+
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVRow(lines[i]).map(c => c.trim());
-    if (cols.length < 2 || !cols[0]) continue;
+    if (!cols.length || !cols[0]) continue;
+
     const obj = {};
-    headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
+    headers.forEach((h, idx) => {
+      obj[h] = cols[idx] || '';
+    });
 
     const skinList = obj['Skin_List']
       ? obj['Skin_List'].split(/[|,]/).map(s => s.trim()).filter(Boolean)
@@ -66,22 +66,27 @@ function parseCSV(text) {
     const skinCount = parseInt(obj['Skin_Count'] || '0', 10) || 0;
     const loginDate = (obj['Login_Cuoi'] || '').trim();
 
-    const hasFull = hasMeaningfulValue(rank) || hasMeaningfulValue(level) || hasMeaningfulValue(heroCount);
+    const hasFull =
+      hasMeaningfulValue(rank) ||
+      hasMeaningfulValue(level) ||
+      hasMeaningfulValue(heroCount);
+
     const normalizedStatus = rawStatus.toLowerCase();
-    const isWhite = normalizedStatus.includes('trắng')
-      || normalizedStatus.includes('trang')
-      || normalizedStatus.includes('lỗi pass')
-      || normalizedStatus.includes('loi pass');
+    const isWhite =
+      normalizedStatus.includes('trắng') ||
+      normalizedStatus.includes('trang') ||
+      normalizedStatus.includes('lỗi pass') ||
+      normalizedStatus.includes('loi pass');
 
     accounts.push({
       type: hasFull ? 'FULL INFO' : 'NICK | PASS',
-      credential: `${obj['User']}|${obj['Pass']}`,
+      credential: `${obj['User'] || ''}|${obj['Pass'] || ''}`,
       username: obj['User'] || '',
       info: {
         Rank: rank || 'N/A',
         Level: level || 'N/A',
         'Tướng': heroCount || 'N/A',
-        Skin: obj['Skin_Count'] || '0',
+        Skin: String(skinCount),
         'Quốc Gia': country,
         Email: email,
         'SĐT': phone,
@@ -98,20 +103,10 @@ function parseCSV(text) {
       source: 'csv',
     });
   }
+
   return accounts;
 }
 
-function parseCSVText(text) {
-  const rows = [];
-  let cols = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-
-    if (ch === '"') {
-      const next = text[i + 1];
 function parseCSVRow(row) {
   const cols = [];
   let current = '';
@@ -119,9 +114,9 @@ function parseCSVRow(row) {
 
   for (let i = 0; i < row.length; i++) {
     const ch = row[i];
+    const next = row[i + 1];
 
     if (ch === '"') {
-      const next = row[i + 1];
       if (inQuotes && next === '"') {
         current += '"';
         i++;
@@ -137,26 +132,6 @@ function parseCSVRow(row) {
       continue;
     }
 
-    if ((ch === '\n' || ch === '\r') && !inQuotes) {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      cols.push(current);
-      const hasData = cols.some(col => String(col).trim() !== '');
-      if (hasData) rows.push(cols);
-      cols = [];
-      current = '';
-      continue;
-    }
-
-    current += ch;
-  }
-
-  if (current.length || cols.length) {
-    cols.push(current);
-    const hasData = cols.some(col => String(col).trim() !== '');
-    if (hasData) rows.push(cols);
-  }
-
-  return rows;
     current += ch;
   }
 
@@ -182,7 +157,10 @@ function normalizeInfoValue(value, options = {}) {
   ]);
 
   if (invalidTokens.has(normalized)) return 'N/A';
-  if (!keepZero && (normalized === '0' || normalized === 'chưa có' || normalized === 'chua co')) return 'N/A';
+  if (!keepZero && (normalized === '0' || normalized === 'chưa có' || normalized === 'chua co')) {
+    return 'N/A';
+  }
+
   return raw;
 }
 
@@ -192,26 +170,36 @@ function hasMeaningfulValue(value) {
 
 function parseLoginDate(str) {
   if (!str) return 0;
+
   const parts = str.split(' ');
   if (parts.length < 2) return 0;
-  const [d, m, y] = parts[1].split('-');
-  const [hh, mm, ss] = parts[0].split(':');
+
+  const [timePart, datePart] = parts;
+  const [d, m, y] = datePart.split('-');
+  const [hh = '00', mm = '00', ss = '00'] = timePart.split(':');
+
+  if (!d || !m || !y) return 0;
+
   const dt = new Date(`${y}-${m}-${d}T${hh}:${mm}:${ss}`);
-  return isNaN(dt) ? 0 : dt.getTime();
+  return Number.isNaN(dt.getTime()) ? 0 : dt.getTime();
 }
 
-// ─── Parse TXT ─────────────────────────────────────────────────────────────────
+// ─── Parse TXT ────────────────────────────────────────────────────────────
 function parseTXT(text) {
-  const lines = text.trim().split('\n');
+  const lines = String(text || '').trim().split('\n');
   const accounts = [];
+
   for (const line of lines) {
     const trimmed = line.trim().replace(/\s+/g, '');
     if (!trimmed) continue;
+
     const parts = trimmed.split('|');
     if (parts.length < 2) continue;
+
     const user = parts[0].trim();
     const pass = parts[1].trim();
     if (!user || !pass) continue;
+
     accounts.push({
       type: 'NICK | PASS',
       credential: `${user}|${pass}`,
@@ -227,14 +215,15 @@ function parseTXT(text) {
       source: 'txt',
     });
   }
+
   return accounts;
 }
 
-// ─── Load data ─────────────────────────────────────────────────────────────────
+// ─── Load data ────────────────────────────────────────────────────────────
 async function loadAccounts() {
   const results = await Promise.allSettled([
-    fetch('data/acc.csv').then(r => r.ok ? r.text() : Promise.reject()),
-    fetch('data/acc.txt').then(r => r.ok ? r.text() : Promise.reject()),
+    fetch('data/acc.csv').then(r => r.ok ? r.text() : Promise.reject(new Error('Không tải được acc.csv'))),
+    fetch('data/acc.txt').then(r => r.ok ? r.text() : Promise.reject(new Error('Không tải được acc.txt'))),
   ]);
 
   let csvAccounts = [];
@@ -245,10 +234,12 @@ async function loadAccounts() {
 
   const csvUsers = new Set(csvAccounts.map(a => a.username.toLowerCase()));
   const uniqueTxt = txtAccounts.filter(a => !csvUsers.has(a.username.toLowerCase()));
+
   allAccounts = [...csvAccounts, ...uniqueTxt];
 
   updateStats(allAccounts, allAccounts);
   updateFilterCounts();
+
   currentPool = allAccounts;
   const filtered = getFilteredAccounts();
   renderList(filtered);
@@ -276,7 +267,7 @@ function refreshView({ keepCurrent = true } = {}) {
   renderAccount(stillVisible || filtered[0] || null);
 }
 
-// ─── Stats ──────────────────────────────────────────────────────────────────
+// ─── Stats ────────────────────────────────────────────────────────────────
 function updateStats(all, visible) {
   if (dom.countDisplay) dom.countDisplay.textContent = all.length;
   if (dom.visibleCount) dom.visibleCount.textContent = visible.length;
@@ -284,15 +275,19 @@ function updateStats(all, visible) {
 }
 
 function updateFilterCounts() {
-  const set = (id, count) => { const el = $(id); if (el) el.textContent = count; };
-  set('countAll',     allAccounts.length);
-  set('countFull',    allAccounts.filter(a => a.type === 'FULL INFO').length);
+  const set = (id, count) => {
+    const el = $(id);
+    if (el) el.textContent = count;
+  };
+
+  set('countAll', allAccounts.length);
+  set('countFull', allAccounts.filter(a => a.type === 'FULL INFO').length);
   set('countPartial', allAccounts.filter(a => a.type === 'NICK | PASS').length);
-  set('countSkin',    allAccounts.filter(a => a.hasSkin).length);
-  set('countWhite',   allAccounts.filter(a => a.isWhite).length);
+  set('countSkin', allAccounts.filter(a => a.hasSkin).length);
+  set('countWhite', allAccounts.filter(a => a.isWhite).length);
 }
 
-// ─── Filter + Sort ────────────────────────────────────────────────────────────
+// ─── Filter + Sort ────────────────────────────────────────────────────────
 function getFilteredAccounts() {
   const activeFilter = document.querySelector('input[name="filter"]:checked')?.value || 'all';
   const keyword = dom.searchInput?.value.trim().toLowerCase() || '';
@@ -300,36 +295,44 @@ function getFilteredAccounts() {
 
   let pool = [...allAccounts];
 
-  // filter
-  if (activeFilter === 'full')    pool = pool.filter(a => a.type === 'FULL INFO');
+  if (activeFilter === 'full') pool = pool.filter(a => a.type === 'FULL INFO');
   if (activeFilter === 'partial') pool = pool.filter(a => a.type === 'NICK | PASS');
-  if (activeFilter === 'skin')    pool = pool.filter(a => a.hasSkin);
-  if (activeFilter === 'white')   pool = pool.filter(a => a.isWhite);
+  if (activeFilter === 'skin') pool = pool.filter(a => a.hasSkin);
+  if (activeFilter === 'white') pool = pool.filter(a => a.isWhite);
 
-  // search
   if (keyword) {
     pool = pool.filter(a =>
-      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''} ${a.info['Email'] || ''} ${a.info['SĐT'] || ''}`.toLowerCase().includes(keyword)
-      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''}`.toLowerCase().includes(keyword)
+      [
+        a.username,
+        a.credential,
+        a.status,
+        a.info?.['Quốc Gia'] || '',
+        a.info?.['Rank'] || '',
+        a.info?.['Email'] || '',
+        a.info?.['SĐT'] || '',
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword)
     );
   }
 
-  // sort
-  if (sortBy === 'latest')  pool.sort((a, b) => b.loginTimestamp - a.loginTimestamp);
-  if (sortBy === 'skins')   pool.sort((a, b) => b.skinCount - a.skinCount);
-  if (sortBy === 'user')    pool.sort((a, b) => a.username.localeCompare(b.username));
-  if (sortBy === 'random')  fisherYatesShuffle(pool);
+  if (sortBy === 'latest') pool.sort((a, b) => b.loginTimestamp - a.loginTimestamp);
+  if (sortBy === 'skins') pool.sort((a, b) => b.skinCount - a.skinCount);
+  if (sortBy === 'user') pool.sort((a, b) => a.username.localeCompare(b.username));
+  if (sortBy === 'random') fisherYatesShuffle(pool);
 
   return pool;
 }
 
-// ─── Render account card ────────────────────────────────────────────────────
+// ─── Render account card ──────────────────────────────────────────────────
 function renderAccount(account) {
   dom.loadingState?.classList.add('hidden');
 
   if (!account) {
     dom.accountCard?.classList.add('hidden');
     dom.emptyState?.classList.remove('hidden');
+    currentAccount = null;
     return;
   }
 
@@ -341,8 +344,10 @@ function renderAccount(account) {
   if (dom.accStatus) {
     dom.accStatus.textContent = account.status;
     dom.accStatus.className = 'acc-status-badge';
+
     if (account.isWhite) {
-      dom.accStatus.style.cssText = 'color:var(--warning);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.08)';
+      dom.accStatus.style.cssText =
+        'color:var(--warning);border-color:rgba(255,209,102,.28);background:rgba(255,209,102,.08)';
     } else {
       dom.accStatus.style.cssText = '';
     }
@@ -353,20 +358,22 @@ function renderAccount(account) {
 
   if (dom.infoGrid) {
     dom.infoGrid.innerHTML = Object.entries(account.info)
-      .map(([label, value]) =>
-        `<div class="info-item"><span class="label">${label}</span><span class="value">${value}</span></div>`
-      ).join('');
+      .map(
+        ([label, value]) =>
+          `<div class="info-item"><span class="label">${label}</span><span class="value">${value}</span></div>`
+      )
+      .join('');
   }
 
   if (dom.skinSection) {
-    dom.skinSection.innerHTML = account.skins.length > 0
-      ? account.skins.map(s => `<span class="skin-tag">${s}</span>`).join('')
-      : `<span class="skin-tag" style="opacity:0.5">Không có skin</span>`;
+    dom.skinSection.innerHTML =
+      account.skins.length > 0
+        ? account.skins.map(s => `<span class="skin-tag">${escHtml(s)}</span>`).join('')
+        : `<span class="skin-tag" style="opacity:0.5">Không có skin</span>`;
   }
 
   currentAccount = account;
 
-  // highlight active row in list
   document.querySelectorAll('.account-row').forEach(row => {
     row.classList.toggle('active', row.dataset.credential === account.credential);
   });
@@ -381,14 +388,13 @@ function escHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// ─── INFINITE SCROLL: Render list (chỉ render 50 items đầu tiên) ───────────────
+// ─── Infinite Scroll ───────────────────────────────────────────────────────
 function renderList(pool) {
   if (!dom.accountList) return;
 
   currentPool = pool;
   renderedCount = 0;
 
-  // Clean up old observer if exists
   if (infiniteScrollObserver) {
     infiniteScrollObserver.disconnect();
     infiniteScrollObserver = null;
@@ -401,14 +407,10 @@ function renderList(pool) {
     return;
   }
 
-  // Render first batch
   appendRows();
-
-  // Setup infinite scroll observer on sentinel element
   setupInfiniteScroll();
 }
 
-// Append next PAGE_SIZE rows to DOM
 function appendRows() {
   if (!dom.accountList || renderedCount >= currentPool.length) return;
 
@@ -424,7 +426,7 @@ function appendRows() {
     row.dataset.credential = acc.credential;
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
-    row.setAttribute('aria-label', `Chọn tài khoản ${escHtml(acc.username)}`);
+    row.setAttribute('aria-label', `Chọn tài khoản ${acc.username}`);
 
     const pillClass = acc.hasSkin ? 'skin' : acc.isWhite ? 'white' : '';
     const pillText = acc.hasSkin ? `🎨 ${acc.skinCount} skin` : acc.isWhite ? '⚠ Trắng' : 'Cơ bản';
@@ -432,10 +434,10 @@ function appendRows() {
     row.innerHTML = `
       <div class="row-main">
         <div class="row-user">${escHtml(acc.username)}</div>
-        <div class="row-sub">${acc.type} · ${acc.info['Quốc Gia'] || 'N/A'}</div>
+        <div class="row-sub">${escHtml(acc.type)} · ${escHtml(acc.info['Quốc Gia'] || 'N/A')}</div>
       </div>
-      <div class="row-type">${acc.info['Rank'] || 'N/A'}</div>
-      <div class="row-meta">${acc.loginDate ? acc.loginDate.split(' ').pop() : '—'}</div>
+      <div class="row-type">${escHtml(acc.info['Rank'] || 'N/A')}</div>
+      <div class="row-meta">${escHtml(acc.loginDate ? acc.loginDate.split(' ').pop() : '—')}</div>
       <div class="row-action"><span class="row-pill ${pillClass}">${pillText}</span></div>
     `;
 
@@ -446,7 +448,10 @@ function appendRows() {
 
     row.addEventListener('click', selectRow);
     row.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(); }
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectRow();
+      }
     });
 
     frag.appendChild(row);
@@ -454,19 +459,15 @@ function appendRows() {
 
   dom.accountList.appendChild(frag);
   renderedCount = end;
-
-  // Update sentinel
   updateSentinel();
 }
 
-// Create or update sentinel element at end of list for IntersectionObserver
 function updateSentinel() {
   if (!dom.accountList) return;
 
   let sentinel = dom.accountList.querySelector('.infinite-scroll-sentinel');
 
   if (renderedCount >= currentPool.length) {
-    // All items rendered -> remove sentinel
     sentinel?.remove();
     return;
   }
@@ -474,7 +475,7 @@ function updateSentinel() {
   if (!sentinel) {
     sentinel = document.createElement('div');
     sentinel.className = 'infinite-scroll-sentinel';
-    sentinel.style.cssText = 'height:1px;';
+    sentinel.style.cssText = 'height: 1px;';
     dom.accountList.appendChild(sentinel);
   }
 }
@@ -485,13 +486,23 @@ function setupInfiniteScroll() {
 
   infiniteScrollObserver = new IntersectionObserver(
     entries => {
-      entries.forEach(entry => {
+      for (const entry of entries) {
         if (entry.isIntersecting && renderedCount < currentPool.length) {
           appendRows();
+
+          const nextSentinel = dom.accountList?.querySelector('.infinite-scroll-sentinel');
+          if (nextSentinel && nextSentinel !== entry.target) {
+            infiniteScrollObserver.disconnect();
+            infiniteScrollObserver.observe(nextSentinel);
+          }
         }
-      });
+      }
     },
-    { root: dom.accountList, rootMargin: '120px', threshold: 0 }
+    {
+      root: dom.accountList,
+      rootMargin: '120px',
+      threshold: 0,
+    }
   );
 
   infiniteScrollObserver.observe(sentinel);
@@ -518,6 +529,7 @@ function pickRandomAccount() {
     renderAccount(null);
     return;
   }
+
   const random = filtered[Math.floor(Math.random() * filtered.length)];
   renderAccount(random);
 }
@@ -526,6 +538,7 @@ function copyCurrentAccount() {
   if (!currentAccount?.credential) return;
 
   const value = currentAccount.credential;
+
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(value).catch(() => {});
     return;
@@ -584,6 +597,8 @@ async function initApp() {
   try {
     await loadAccounts();
   } catch (error) {
+    console.error('initApp error:', error);
+
     dom.loadingState?.classList.remove('hidden');
     if (dom.loadingState) {
       dom.loadingState.innerHTML = `
@@ -595,9 +610,8 @@ async function initApp() {
   }
 }
 
-// Đảm bảo code chạy ngay cả khi dán vào console hoặc load trang
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initApp);
+  document.addEventListener('DOMContentLoaded', initApp);
 } else {
-    initApp();
+  initApp();
 }
