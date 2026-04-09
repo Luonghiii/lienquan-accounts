@@ -12,6 +12,7 @@ const dom = {
   skinSection: $('skinSection'),
   accType: $('accType'),
   accStatus: $('accStatus'),
+  accountName: $('accountName'),
   countDisplay: $('countDisplay'),
   visibleCount: $('visibleCount'),
   skinCount: $('skinCount'),
@@ -45,7 +46,7 @@ function parseCSV(text) {
     headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
 
     const skinList = obj['Skin_List']
-      ? obj['Skin_List'].split('|').map(s => s.trim()).filter(Boolean)
+      ? obj['Skin_List'].split(/[|,]/).map(s => s.trim()).filter(Boolean)
       : [];
 
     const rank = normalizeInfoValue(obj['Rank']);
@@ -304,6 +305,7 @@ function renderAccount(account) {
   }
 
   if (dom.credential) dom.credential.textContent = account.credential;
+  if (dom.accountName) dom.accountName.textContent = `Tên acc: ${account.username || 'N/A'}`;
 
   if (dom.infoGrid) {
     dom.infoGrid.innerHTML = Object.entries(account.info)

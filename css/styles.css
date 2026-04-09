@@ -42,7 +42,7 @@ select {
 
 .hero {
   position: relative;
-  min-height: 86vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
   isolation: isolate;
@@ -137,6 +137,30 @@ select {
   background: linear-gradient(100deg, var(--primary), var(--secondary));
   color: #fff;
   box-shadow: 0 10px 24px rgba(181, 23, 158, 0.25);
+}
+
+#rollBtnMain,
+#rollBtn {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: linear-gradient(130deg, #3dd6ff 0%, #7d5bff 45%, #ff4ecd 100%);
+  box-shadow: 0 10px 24px rgba(125, 91, 255, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  overflow: hidden;
+}
+
+#rollBtnMain::before,
+#rollBtn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.28) 50%, transparent 80%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+
+#rollBtnMain:hover::before,
+#rollBtn:hover::before {
+  transform: translateX(120%);
 }
 
 .btn-ghost {
@@ -295,6 +319,13 @@ select {
   border: 1px solid rgba(76, 201, 240, 0.28);
   text-align: center;
   word-break: break-word;
+}
+
+.account-name {
+  margin-top: 0.9rem;
+  color: var(--primary-2);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .info-grid {
@@ -620,7 +651,7 @@ select {
 
 @media (max-width: 700px) {
   .hero {
-    min-height: 78vh;
+    min-height: 100svh;
   }
 
   .container {
