@@ -421,7 +421,7 @@ function appendRows() {
     const row = document.createElement('div');
     row.className = 'account-row';
     row.dataset.index = i;
-    row.dataset.credential = escHtml(acc.credential);
+    row.dataset.credential = acc.credential;
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
     row.setAttribute('aria-label', `Chọn tài khoản ${escHtml(acc.username)}`);
