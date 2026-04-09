@@ -42,7 +42,7 @@
         <div class="search-box">
           <label class="sr-only" for="searchInput">Tìm tài khoản</label>
           <input id="searchInput" type="search"
-                 placeholder="🔍  Tìm username, trạng thái, quốc gia..." />
+                 placeholder="🔍  Tìm username, rank, trạng thái, quốc gia..." />
         </div>
         <div class="sort-box">
           <label class="sr-only" for="sortSelect">Sắp xếp</label>
@@ -85,21 +85,6 @@
         <button id="copyBtn" class="btn btn-ghost">SAO CHÉP</button>
       </div>
 
-      <!-- Stats strip -->
-      <div class="stats-strip">
-        <div class="mini-stat">
-          <span class="mini-label">Tổng acc</span>
-          <strong id="countDisplay">0</strong>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-label">Đang hiển thị</span>
-          <strong id="visibleCount">0</strong>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-label">Có skin</span>
-          <strong id="skinCount">0</strong>
-        </div>
-      </div>
     </section>
 
     <!-- Account card display -->
@@ -117,6 +102,7 @@
             <span class="acc-type-tag" id="accType">FULL INFO</span>
             <span class="acc-status-tag" id="accStatus">SẴN SÀNG</span>
           </div>
+          <div class="account-name" id="accountName">Tên acc: --</div>
           <div class="credential-box" id="credential"></div>
           <div id="infoGrid" class="info-grid"></div>
           <div id="skinSection" class="skin-section"></div>
@@ -126,6 +112,21 @@
       <div id="emptyState" class="state-box hidden">
         <p>Không có tài khoản phù hợp bộ lọc hiện tại.</p>
         <small>Hãy đổi từ khoá, bộ lọc hoặc thêm file vào thư mục <code>data/</code>.</small>
+      </div>
+
+      <div class="stats-strip">
+        <div class="mini-stat">
+          <span class="mini-label">Tổng acc</span>
+          <strong id="countDisplay">0</strong>
+        </div>
+        <div class="mini-stat">
+          <span class="mini-label">Đang hiển thị</span>
+          <strong id="visibleCount">0</strong>
+        </div>
+        <div class="mini-stat">
+          <span class="mini-label">Có skin</span>
+          <strong id="skinCount">0</strong>
+        </div>
       </div>
     </section>
 

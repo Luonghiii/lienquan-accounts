@@ -12,6 +12,7 @@ const dom = {
   skinSection: $('skinSection'),
   accType: $('accType'),
   accStatus: $('accStatus'),
+  accountName: $('accountName'),
   countDisplay: $('countDisplay'),
   visibleCount: $('visibleCount'),
   skinCount: $('skinCount'),
@@ -33,36 +34,47 @@ let infiniteScrollObserver = null;
 
 // ─── Parse CSV ─────────────────────────────────────────────────────────────────
 function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^\uFEFF/, ''));
+  const rows = parseCSVText(text);
+  if (!rows.length) return [];
+
+  const headers = rows[0].map(h => h.trim().replace(/^\uFEFF/, ''));
   const accounts = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map(c => c.trim());
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i].map(c => c.trim());
     if (cols.length < 2 || !cols[0]) continue;
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
 
     const skinList = obj['Skin_List']
-      ? obj['Skin_List'].split('|').map(s => s.trim()).filter(Boolean)
+      ? obj['Skin_List'].split(/[|,]/).map(s => s.trim()).filter(Boolean)
       : [];
 
-    const hasFull = obj['Rank'] || obj['Level'] || obj['Tuong'];
-    const isWhite = (obj['TrangThai'] || '').toLowerCase().includes('trắng')
-      || (obj['TrangThai'] || '').toLowerCase().includes('loi pass');
+    const rank = normalizeInfoValue(obj['Rank']);
+    const level = normalizeInfoValue(obj['Level'], { keepZero: false });
+    const heroCount = normalizeInfoValue(obj['Tuong'], { keepZero: false });
+    const country = normalizeInfoValue(obj['QuocGia']) || 'N/A';
+    const rawStatus = normalizeInfoValue(obj['TrangThai']) || 'N/A';
     const skinCount = parseInt(obj['Skin_Count'] || '0', 10) || 0;
-    const loginDate = obj['Login_Cuoi'] || '';
+    const loginDate = (obj['Login_Cuoi'] || '').trim();
+
+    const hasFull = hasMeaningfulValue(rank) || hasMeaningfulValue(level) || hasMeaningfulValue(heroCount);
+    const normalizedStatus = rawStatus.toLowerCase();
+    const isWhite = normalizedStatus.includes('trắng')
+      || normalizedStatus.includes('trang')
+      || normalizedStatus.includes('lỗi pass')
+      || normalizedStatus.includes('loi pass');
 
     accounts.push({
       type: hasFull ? 'FULL INFO' : 'NICK | PASS',
       credential: `${obj['User']}|${obj['Pass']}`,
       username: obj['User'] || '',
       info: {
-        Rank: obj['Rank'] || 'N/A',
-        Level: obj['Level'] || 'N/A',
-        'Tướng': obj['Tuong'] || 'N/A',
+        Rank: rank || 'N/A',
+        Level: level || 'N/A',
+        'Tướng': heroCount || 'N/A',
         Skin: obj['Skin_Count'] || '0',
-        'Quốc Gia': obj['QuocGia'] || 'N/A',
-        'Trạng Thái': obj['TrangThai'] || 'N/A',
+        'Quốc Gia': country,
+        'Trạng Thái': rawStatus,
       },
       skins: skinList,
       skinCount,
@@ -70,11 +82,85 @@ function parseCSV(text) {
       hasSkin: skinCount > 0,
       loginDate,
       loginTimestamp: parseLoginDate(loginDate),
-      status: isWhite ? 'Lỗi pass' : 'Sẵn sàng',
+      status: isWhite ? 'Acc trắng / lỗi pass' : 'Sẵn sàng',
       source: 'csv',
     });
   }
   return accounts;
+}
+
+function parseCSVText(text) {
+  const rows = [];
+  let cols = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (ch === '"') {
+      const next = text[i + 1];
+      if (inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (ch === ',' && !inQuotes) {
+      cols.push(current);
+      current = '';
+      continue;
+    }
+
+    if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      cols.push(current);
+      const hasData = cols.some(col => String(col).trim() !== '');
+      if (hasData) rows.push(cols);
+      cols = [];
+      current = '';
+      continue;
+    }
+
+    current += ch;
+  }
+
+  if (current.length || cols.length) {
+    cols.push(current);
+    const hasData = cols.some(col => String(col).trim() !== '');
+    if (hasData) rows.push(cols);
+  }
+
+  return rows;
+}
+
+function normalizeInfoValue(value, options = {}) {
+  const keepZero = options.keepZero ?? true;
+  const raw = String(value || '').trim();
+  if (!raw) return 'N/A';
+
+  const normalized = raw.toLowerCase();
+  const invalidTokens = new Set([
+    'không lọc được',
+    'khong loc duoc',
+    'chưa xác thực',
+    'chua xac thuc',
+    'n/a',
+    'no [chưa xác thực]',
+    'no [chua xac thuc]',
+    'no',
+  ]);
+
+  if (invalidTokens.has(normalized)) return 'N/A';
+  if (!keepZero && (normalized === '0' || normalized === 'chưa có' || normalized === 'chua co')) return 'N/A';
+  return raw;
+}
+
+function hasMeaningfulValue(value) {
+  return value && value !== 'N/A';
 }
 
 function parseLoginDate(str) {
@@ -196,7 +282,7 @@ function getFilteredAccounts() {
   // search
   if (keyword) {
     pool = pool.filter(a =>
-      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''}`.toLowerCase().includes(keyword)
+      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''}`.toLowerCase().includes(keyword)
     );
   }
 
@@ -235,6 +321,7 @@ function renderAccount(account) {
   }
 
   if (dom.credential) dom.credential.textContent = account.credential;
+  if (dom.accountName) dom.accountName.textContent = `Tên acc: ${account.username || 'N/A'}`;
 
   if (dom.infoGrid) {
     dom.infoGrid.innerHTML = Object.entries(account.info)
@@ -258,7 +345,12 @@ function renderAccount(account) {
 }
 
 function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ─── INFINITE SCROLL: Render list (chỉ render 50 items đầu tiên) ───────────────
