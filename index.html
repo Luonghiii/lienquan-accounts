@@ -36,6 +36,25 @@
 
     <!-- Controls -->
     <section class="controls-card reveal">
+
+      <!-- Search + Sort -->
+      <div class="toolbar-top">
+        <div class="search-box">
+          <label class="sr-only" for="searchInput">Tìm tài khoản</label>
+          <input id="searchInput" type="search"
+                 placeholder="🔍  Tìm username, rank, trạng thái, quốc gia..." />
+        </div>
+        <div class="sort-box">
+          <label class="sr-only" for="sortSelect">Sắp xếp</label>
+          <select id="sortSelect">
+            <option value="random">Sắp xếp: Ngẫu nhiên</option>
+            <option value="latest">Sắp xếp: Mới nhất</option>
+            <option value="skins">Sắp xếp: Nhiều skin</option>
+            <option value="user">Sắp xếp: Username A-Z</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Filter chips -->
       <div class="filter-group">
         <label class="filter-chip">
@@ -127,8 +146,8 @@
         <div class="sort-box">
           <label class="sr-only" for="sortSelect">Sắp xếp</label>
           <select id="sortSelect">
-            <option value="latest" selected>Sắp xếp: Mới nhất</option>
             <option value="random">Sắp xếp: Ngẫu nhiên</option>
+            <option value="latest">Sắp xếp: Mới nhất</option>
             <option value="skins">Sắp xếp: Nhiều skin</option>
             <option value="user">Sắp xếp: Username A-Z</option>
           </select>

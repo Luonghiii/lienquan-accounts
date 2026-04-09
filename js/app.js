@@ -41,6 +41,13 @@ function parseCSV(text) {
   const accounts = [];
   for (let i = 1; i < rows.length; i++) {
     const cols = rows[i].map(c => c.trim());
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return [];
+
+  const headers = parseCSVRow(lines[0]).map(h => h.trim().replace(/^\uFEFF/, ''));
+  const accounts = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVRow(lines[i]).map(c => c.trim());
     if (cols.length < 2 || !cols[0]) continue;
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
@@ -105,6 +112,16 @@ function parseCSVText(text) {
 
     if (ch === '"') {
       const next = text[i + 1];
+function parseCSVRow(row) {
+  const cols = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < row.length; i++) {
+    const ch = row[i];
+
+    if (ch === '"') {
+      const next = row[i + 1];
       if (inQuotes && next === '"') {
         current += '"';
         i++;
@@ -140,6 +157,11 @@ function parseCSVText(text) {
   }
 
   return rows;
+    current += ch;
+  }
+
+  cols.push(current);
+  return cols;
 }
 
 function normalizeInfoValue(value, options = {}) {
@@ -288,6 +310,7 @@ function getFilteredAccounts() {
   if (keyword) {
     pool = pool.filter(a =>
       `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''} ${a.info['Email'] || ''} ${a.info['SĐT'] || ''}`.toLowerCase().includes(keyword)
+      `${a.username} ${a.credential} ${a.status} ${a.info['Quốc Gia'] || ''} ${a.info['Rank'] || ''}`.toLowerCase().includes(keyword)
     );
   }
 
