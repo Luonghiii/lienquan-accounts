@@ -1,8 +1,8 @@
 :root {
   --bg: #050611;
-  --bg-soft: #0b1022;
-  --panel: rgba(11, 14, 31, 0.78);
-  --panel-strong: rgba(9, 12, 28, 0.92);
+  --bg-soft: #101937;
+  --panel: rgba(20, 28, 56, 0.86);
+  --panel-strong: rgba(18, 24, 48, 0.95);
   --stroke: rgba(255, 255, 255, 0.12);
   --stroke-strong: rgba(255, 255, 255, 0.2);
   --text: #f8fbff;
@@ -42,7 +42,7 @@ select {
 
 .hero {
   position: relative;
-  min-height: 86vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
   isolation: isolate;
@@ -139,6 +139,30 @@ select {
   box-shadow: 0 10px 24px rgba(181, 23, 158, 0.25);
 }
 
+#rollBtnMain,
+#rollBtn {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: linear-gradient(130deg, #3dd6ff 0%, #7d5bff 45%, #ff4ecd 100%);
+  box-shadow: 0 10px 24px rgba(125, 91, 255, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  overflow: hidden;
+}
+
+#rollBtnMain::before,
+#rollBtn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.28) 50%, transparent 80%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+
+#rollBtnMain:hover::before,
+#rollBtn:hover::before {
+  transform: translateX(120%);
+}
+
 .btn-ghost {
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
@@ -198,7 +222,7 @@ select {
 .state-box,
 .stats-footer,
 .list-card {
-  background: var(--panel);
+  background: linear-gradient(160deg, rgba(24, 34, 68, 0.9), rgba(12, 18, 40, 0.88));
   border: 1px solid var(--stroke);
   border-radius: 24px;
   backdrop-filter: blur(10px);
@@ -295,6 +319,13 @@ select {
   border: 1px solid rgba(76, 201, 240, 0.28);
   text-align: center;
   word-break: break-word;
+}
+
+.account-name {
+  margin-top: 0.9rem;
+  color: var(--primary-2);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .info-grid {
@@ -414,34 +445,43 @@ select {
 }
 
 .stats-strip {
-  margin-top: 1rem;
+  margin-top: 1.1rem;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(76, 201, 240, 0.14), rgba(181, 23, 158, 0.14));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
 }
 
 .mini-stat {
   padding: 0.9rem 1rem;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(7, 14, 40, 0.72);
+  border: 1px solid rgba(140, 229, 255, 0.3);
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .mini-label {
   display: block;
   font-size: 0.8rem;
-  color: var(--muted);
+  color: #d9e2ff;
   margin-bottom: 0.35rem;
 }
 
 .mini-stat strong {
   font-size: 1.15rem;
+  color: #9ef5ff;
+  text-shadow: 0 0 12px rgba(76, 201, 240, 0.25);
 }
 
 .list-card {
   margin-top: 1rem;
   padding: 1.2rem;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
 }
 
 .list-head {
@@ -461,7 +501,7 @@ select {
 .account-list {
   display: grid;
   gap: 0.75rem;
-  max-height: 560px;
+  max-height: min(72vh, 980px);
   overflow: auto;
   padding-right: 0.25rem;
 }
@@ -620,7 +660,7 @@ select {
 
 @media (max-width: 700px) {
   .hero {
-    min-height: 78vh;
+    min-height: 100svh;
   }
 
   .container {
