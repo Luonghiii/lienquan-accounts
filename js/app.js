@@ -34,13 +34,13 @@ let infiniteScrollObserver = null;
 
 // ─── Parse CSV ─────────────────────────────────────────────────────────────────
 function parseCSV(text) {
-  const rows = parseCSVText(text);
-  if (!rows.length) return [];
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return [];
 
-  const headers = rows[0].map(h => h.trim().replace(/^\uFEFF/, ''));
+  const headers = parseCSVRow(lines[0]).map(h => h.trim().replace(/^\uFEFF/, ''));
   const accounts = [];
-  for (let i = 1; i < rows.length; i++) {
-    const cols = rows[i].map(c => c.trim());
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVRow(lines[i]).map(c => c.trim());
     if (cols.length < 2 || !cols[0]) continue;
     const obj = {};
     headers.forEach((h, idx) => { obj[h] = cols[idx] || ''; });
@@ -89,17 +89,16 @@ function parseCSV(text) {
   return accounts;
 }
 
-function parseCSVText(text) {
-  const rows = [];
-  let cols = [];
+function parseCSVRow(row) {
+  const cols = [];
   let current = '';
   let inQuotes = false;
 
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
+  for (let i = 0; i < row.length; i++) {
+    const ch = row[i];
 
     if (ch === '"') {
-      const next = text[i + 1];
+      const next = row[i + 1];
       if (inQuotes && next === '"') {
         current += '"';
         i++;
@@ -115,26 +114,11 @@ function parseCSVText(text) {
       continue;
     }
 
-    if ((ch === '\n' || ch === '\r') && !inQuotes) {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      cols.push(current);
-      const hasData = cols.some(col => String(col).trim() !== '');
-      if (hasData) rows.push(cols);
-      cols = [];
-      current = '';
-      continue;
-    }
-
     current += ch;
   }
 
-  if (current.length || cols.length) {
-    cols.push(current);
-    const hasData = cols.some(col => String(col).trim() !== '');
-    if (hasData) rows.push(cols);
-  }
-
-  return rows;
+  cols.push(current);
+  return cols;
 }
 
 function normalizeInfoValue(value, options = {}) {
