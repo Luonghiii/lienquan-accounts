@@ -137,9 +137,30 @@ async function loadAccounts() {
   updateStats(allAccounts, allAccounts);
   updateFilterCounts();
   currentPool = allAccounts;
-  renderList(getFilteredAccounts());
+  const filtered = getFilteredAccounts();
+  renderList(filtered);
+  renderAccount(filtered[0] || null);
 
   return allAccounts;
+}
+
+function refreshView({ keepCurrent = true } = {}) {
+  const filtered = getFilteredAccounts();
+  updateStats(allAccounts, filtered);
+  renderList(filtered);
+
+  if (!keepCurrent) {
+    renderAccount(filtered[0] || null);
+    return;
+  }
+
+  if (!currentAccount) {
+    renderAccount(filtered[0] || null);
+    return;
+  }
+
+  const stillVisible = filtered.find(acc => acc.credential === currentAccount.credential);
+  renderAccount(stillVisible || filtered[0] || null);
 }
 
 // ─── Stats ──────────────────────────────────────────────────────────────────
@@ -356,9 +377,91 @@ function setupInfiniteScroll() {
   infiniteScrollObserver.observe(sentinel);
 }
 
+function pickRandomAccount() {
+  const filtered = getFilteredAccounts();
+  if (!filtered.length) {
+    renderAccount(null);
+    return;
+  }
+  const random = filtered[Math.floor(Math.random() * filtered.length)];
+  renderAccount(random);
+}
+
+function copyCurrentAccount() {
+  if (!currentAccount?.credential) return;
+
+  const value = currentAccount.credential;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(value).catch(() => {});
+    return;
+  }
+
+  const temp = document.createElement('textarea');
+  temp.value = value;
+  temp.style.position = 'fixed';
+  temp.style.left = '-9999px';
+  document.body.appendChild(temp);
+  temp.focus();
+  temp.select();
+  document.execCommand('copy');
+  temp.remove();
+}
+
+function initReveal() {
+  const revealElements = document.querySelectorAll('.reveal');
+  if (!revealElements.length) return;
+
+  const observer = new IntersectionObserver(
+    entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('in-view');
+        observer.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.15 }
+  );
+
+  revealElements.forEach(el => observer.observe(el));
+}
+
+function initEvents() {
+  dom.scrollToPanel?.addEventListener('click', () => {
+    dom.panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  dom.rollBtns.forEach(btn => btn.addEventListener('click', pickRandomAccount));
+  dom.copyBtn?.addEventListener('click', copyCurrentAccount);
+
+  dom.searchInput?.addEventListener('input', () => refreshView({ keepCurrent: true }));
+  dom.sortSelect?.addEventListener('change', () => refreshView({ keepCurrent: true }));
+
+  document.querySelectorAll('input[name="filter"]').forEach(input => {
+    input.addEventListener('change', () => refreshView({ keepCurrent: false }));
+  });
+}
+
+async function initApp() {
+  initReveal();
+  initEvents();
+
+  try {
+    await loadAccounts();
+  } catch (error) {
+    dom.loadingState?.classList.remove('hidden');
+    if (dom.loadingState) {
+      dom.loadingState.innerHTML = `
+        <p>Không thể tải dữ liệu tài khoản.</p>
+        <small>Hãy chạy trang qua web server (vd: Live Server) thay vì mở trực tiếp file://.</small>
+      `;
+    }
+    renderAccount(null);
+  }
+}
+
 // Đảm bảo code chạy ngay cả khi dán vào console hoặc load trang
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => loadAccounts());
+    document.addEventListener('DOMContentLoaded', initApp);
 } else {
-    loadAccounts();
+    initApp();
 }
